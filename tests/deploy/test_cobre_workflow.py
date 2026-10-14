@@ -120,11 +120,11 @@ SHAPES: dict[str, tuple[str, str, bool, str, str, list[str]]] = {
     "maxCoresPerNode": ("Int", "100", True, "", "", []),
     "queue": (
         "List",
-        "@@env:queueDecomp@@",
+        "@@env:queueCobre@@",
         True,
         "",
         "",
-        ["@@env:queueNewave@@", "@@env:queueDecomp@@", "@@env:queueTest@@"],
+        ["@@env:queueNewave@@", "@@env:queueDecomp@@", "@@env:queueCobre@@"],
     ),
     "modelName": ("String", "cobre", False, "", "", []),
     "modelVersion": ("List", "v0.17.0", True, "", "", ["v0.17.0"]),

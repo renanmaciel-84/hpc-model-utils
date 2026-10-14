@@ -306,63 +306,81 @@
       "alias": null,
       "taskId": "@@task:ensure-tools@@",
       "executionCriteria": null,
-      "onFailure": 1
+      "onFailure": 1,
+      "hidden": false,
+      "taskName": null
     },
     {
       "workflowTaskId": "bb1fe491-c0cc-421c-a745-fb06d22c22f7",
       "alias": null,
       "taskId": "@@task:create-workdir@@",
       "executionCriteria": null,
-      "onFailure": 1
+      "onFailure": 1,
+      "hidden": false,
+      "taskName": null
     },
     {
       "workflowTaskId": "abfdcd47-72c9-4dfc-bef4-42284853c4f3",
       "alias": null,
       "taskId": "@@task:v1-clone-simulprospec@@",
       "executionCriteria": null,
-      "onFailure": 1
+      "onFailure": 1,
+      "hidden": false,
+      "taskName": null
     },
     {
       "workflowTaskId": "f911e86d-2f21-4e18-a761-1e34897d0789",
       "alias": null,
       "taskId": "@@task:v1-clone-evalprospec@@",
       "executionCriteria": null,
-      "onFailure": 1
+      "onFailure": 1,
+      "hidden": false,
+      "taskName": null
     },
     {
       "workflowTaskId": "5e3662eb-13e4-4953-8bf8-f3376ad539ae",
       "alias": null,
       "taskId": "@@task:v1-clone-ranking-utils@@",
       "executionCriteria": null,
-      "onFailure": 1
+      "onFailure": 1,
+      "hidden": false,
+      "taskName": null
     },
     {
       "workflowTaskId": "50abf2db-d264-4862-8402-029834b371b3",
       "alias": null,
       "taskId": "@@task:fetch-executables@@",
       "executionCriteria": null,
-      "onFailure": 1
+      "onFailure": 1,
+      "hidden": false,
+      "taskName": null
     },
     {
       "workflowTaskId": "0c32ee5d-8b64-4894-a690-bcdc9c92e1dc",
       "alias": null,
       "taskId": "@@task:v1-ranking-fetch-inputs@@",
       "executionCriteria": "",
-      "onFailure": 1
+      "onFailure": 1,
+      "hidden": false,
+      "taskName": null
     },
     {
       "workflowTaskId": "44055993-904f-44bc-a47e-7fb45f92c7f1",
       "alias": null,
       "taskId": "@@task:v1-ranking-run@@",
       "executionCriteria": null,
-      "onFailure": 1
+      "onFailure": 1,
+      "hidden": false,
+      "taskName": null
     },
     {
       "workflowTaskId": "bdf750d6-447a-4cd4-92fb-49d16ff5783c",
       "alias": null,
       "taskId": "@@task:remove-workdir@@",
       "executionCriteria": null,
-      "onFailure": 1
+      "onFailure": 1,
+      "hidden": false,
+      "taskName": null
     }
   ],
   "cancelationTasks": [

@@ -349,6 +349,8 @@ _RETIRED_NODE = {
     "taskId": "@@task:v1-clone-hpc-model-utils@@",
     "executionCriteria": None,
     "onFailure": 1,
+    "hidden": False,
+    "taskName": None,
 }
 
 
