@@ -107,6 +107,10 @@ class Toolchain:
     def mpich_lib(self) -> Path:
         return self.mpich_bin.parent / "lib"
 
+    @property
+    def python_bin(self) -> Path:
+        return self.cli_bin.parent / "python"
+
 
 def format_time_limit(hours: int) -> str:
     return f"{hours // 24}-{hours % 24:02d}:00:00"

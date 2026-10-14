@@ -30,6 +30,9 @@ class EngineSettings:
     outcome_backoff: float = 10.0
     cancel_timeout: float = 60.0
     cli_bin: Path | None = None
+    telemetry: bool = True
+    telemetry_interval: int = 5
+    telemetry_workspace_interval: int = 60
 
     @classmethod
     def from_env(cls, env: Mapping[str, str] = os.environ) -> EngineSettings:
@@ -72,6 +75,23 @@ class EngineSettings:
                 env, "HPCMU_CANCEL_TIMEOUT", defaults.cancel_timeout
             ),
             cli_bin=_cli_bin_override(env, "HPCMU_CLI_BIN", defaults.cli_bin),
+            telemetry=_switch_override(
+                env, "HPCMU_TELEMETRY", defaults.telemetry
+            ),
+            telemetry_interval=_int_override(
+                env,
+                "HPCMU_TELEMETRY_INTERVAL",
+                defaults.telemetry_interval,
+                minimum=5,
+                maximum=30,
+            ),
+            telemetry_workspace_interval=_int_override(
+                env,
+                "HPCMU_TELEMETRY_WORKSPACE_INTERVAL",
+                defaults.telemetry_workspace_interval,
+                minimum=60,
+                maximum=3600,
+            ),
         )
 
 
@@ -89,7 +109,12 @@ def _float_override(env: Mapping[str, str], var: str, default: float) -> float:
 
 
 def _int_override(
-    env: Mapping[str, str], var: str, default: int, *, minimum: int
+    env: Mapping[str, str],
+    var: str,
+    default: int,
+    *,
+    minimum: int,
+    maximum: int | None = None,
 ) -> int:
     raw = env.get(var, "")
     if raw == "":
@@ -100,6 +125,8 @@ def _int_override(
         raise UsageError(f"{var} must be an integer: {raw!r}") from None
     if value < minimum:
         raise UsageError(f"{var} must be >= {minimum}: {raw!r}")
+    if maximum is not None and value > maximum:
+        raise UsageError(f"{var} must be <= {maximum}: {raw!r}")
     return value
 
 
@@ -113,3 +140,14 @@ def _cli_bin_override(
     if not path.is_absolute():
         raise UsageError(f"{var} must be an absolute path: {raw!r}")
     return path
+
+
+def _switch_override(env: Mapping[str, str], var: str, default: bool) -> bool:
+    raw = env.get(var, "")
+    if raw == "":
+        return default
+    if raw == "on":
+        return True
+    if raw == "off":
+        return False
+    raise UsageError(f"{var} must be on or off: {raw!r}")

@@ -5,6 +5,7 @@ from __future__ import annotations
 import os
 import re
 import subprocess
+import sys
 from pathlib import Path
 
 import pytest
@@ -31,6 +32,7 @@ _GOLDEN_PATH = (
     / "sbatch"
     / "model_mpiexec.sbatch"
 )
+_SRUN_PMIX_GOLDEN_PATH = _GOLDEN_PATH.with_name("model_srun_pmix.sbatch")
 
 
 def _write_stub(bin_dir: Path, name: str, body: str) -> Path:
@@ -119,6 +121,49 @@ def test_toolchain_mpich_lib_nested_bin_path() -> None:
         cli_bin=Path("/opt/hpcmu/bin"),
     )
     assert tools.mpich_lib == Path("/shared-zfs/mpich-4.2.3-install/lib")
+
+
+def test_toolchain_python_bin_is_sibling_of_cli_bin() -> None:
+    tools = Toolchain(
+        mpich_bin=Path("/opt/mpich/bin"),
+        slurm_bin=Path("/opt/slurm/bin"),
+        cli_bin=Path(
+            "/shared-zfs/tools/hpc-model-utils/abc/.venv/bin/hpc-model-utils"
+        ),
+    )
+    assert tools.python_bin == Path(
+        "/shared-zfs/tools/hpc-model-utils/abc/.venv/bin/python"
+    )
+
+
+def test_toolchain_python_bin_missing_interpreter_raises_nothing(
+    tmp_path: Path,
+) -> None:
+    cli_bin = tmp_path / "bin" / "hpc-model-utils"
+    tools = Toolchain(
+        mpich_bin=Path("/opt/mpich/bin"),
+        slurm_bin=Path("/opt/slurm/bin"),
+        cli_bin=cli_bin,
+    )
+    assert tools.python_bin == tmp_path / "bin" / "python"
+    assert not tmp_path.joinpath("bin").exists()
+
+
+def test_toolchain_python_bin_symlinked_interpreter_is_not_resolved(
+    tmp_path: Path,
+) -> None:
+    bin_dir = tmp_path / "bin"
+    bin_dir.mkdir()
+    cli_bin = bin_dir / "hpc-model-utils"
+    cli_bin.write_text("", encoding="utf-8")
+    (bin_dir / "python").symlink_to(sys.executable)
+    tools = Toolchain(
+        mpich_bin=Path("/opt/mpich/bin"),
+        slurm_bin=Path("/opt/slurm/bin"),
+        cli_bin=cli_bin,
+    )
+    assert tools.python_bin == bin_dir / "python"
+    assert tools.python_bin != (bin_dir / "python").resolve()
 
 
 # -- LaunchSpec.__post_init__ ---------------------------------------------
@@ -496,6 +541,59 @@ def test_render_model_script_mpiexec_hydra_matches_golden(
     assert normalized == expected
     assert "#SBATCH --exclusive" in rendered
     assert "LD_LIBRARY_PATH" not in rendered
+
+    script_path = tmp_path / "golden-check.sbatch"
+    script_path.write_text(rendered, encoding="utf-8")
+    subprocess.run(["bash", "-n", str(script_path)], check=True)
+
+
+def test_render_model_script_srun_pmix_matches_golden(
+    tmp_path: Path,
+) -> None:
+    root = tmp_path / "study-cobre"
+    root.mkdir()
+    ws = Workspace.at(root)
+    tools = Toolchain(
+        mpich_bin=Path("/opt/mpich/bin"),
+        slurm_bin=Path("/opt/slurm/bin"),
+        cli_bin=Path("/opt/hpcmu/bin"),
+    )
+    spec = LaunchSpec(
+        launcher=Launcher.SRUN_PMIX,
+        argv=(
+            str(ws.root / "assets" / "cobre-mpi"),
+            "run",
+            str(ws.root),
+            "--threads",
+            "96",
+            "--comm-backend",
+            "mpi",
+        ),
+        nodes=4,
+        ntasks_per_node=1,
+        cpus_per_task=96,
+        prepend_mpich_lib=True,
+        env={"FI_PROVIDER": "efa"},
+    )
+    res = Resources(
+        queue="batch", cores=384, max_cores_per_node=96, time_limit_hours=24
+    )
+    rendered = render_model_script(ws, spec, res, tools)
+    normalized = rendered.replace(str(ws.root), "<WS>")
+
+    if os.environ.get(_REGEN_ENV) == "1":
+        _SRUN_PMIX_GOLDEN_PATH.parent.mkdir(parents=True, exist_ok=True)
+        _SRUN_PMIX_GOLDEN_PATH.write_text(normalized, encoding="utf-8")
+        pytest.fail(
+            f"{_REGEN_ENV}=1: regenerated {_SRUN_PMIX_GOLDEN_PATH}; "
+            "re-run without it to verify"
+        )
+
+    expected = _SRUN_PMIX_GOLDEN_PATH.read_text(encoding="utf-8")
+    assert normalized == expected
+    assert "srun --mpi=pmix --ntasks-per-node=1" in rendered
+    assert "export FI_PROVIDER=efa" in rendered
+    assert "export LD_LIBRARY_PATH=" in rendered
 
     script_path = tmp_path / "golden-check.sbatch"
     script_path.write_text(rendered, encoding="utf-8")

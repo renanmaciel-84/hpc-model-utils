@@ -82,6 +82,14 @@ class Workspace:
         return self.hpcmu_dir / "outputs"
 
     @property
+    def telemetry_dir(self) -> Path:
+        return self.hpcmu_dir / "telemetry"
+
+    @property
+    def telemetry_outputs_dir(self) -> Path:
+        return self.outputs_dir / "telemetry"
+
+    @property
     def model_exit_path(self) -> Path:
         return self.jobs_dir / "model.exit"
 
@@ -116,6 +124,7 @@ class Workspace:
             self.jobs_dir,
             self.logs_dir,
             self.outputs_dir,
+            self.telemetry_dir,
         ):
             path.mkdir(parents=True, exist_ok=True)
 
