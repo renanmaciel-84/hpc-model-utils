@@ -181,6 +181,12 @@ def _write_raw(ws: Workspace, relative: str, data: bytes) -> None:
             "cobre exited 4: internal error",
         ),
         (
+            6,
+            RunStatus.RUNTIME_ERROR,
+            "cobre.unexpected_exit",
+            "cobre exited 6",
+        ),
+        (
             137,
             RunStatus.RUNTIME_ERROR,
             "cobre.unexpected_exit",
@@ -564,10 +570,16 @@ _TRAINING_FIELD_DEFECTS = [
         id="world-size-bool",
     ),
     pytest.param(
-        "cobre_version",
+        "software_version",
         _ABSENT,
-        "cobre_version is missing",
+        "software_version (cobre_version before v0.18.0) is missing",
         id="version-absent",
+    ),
+    pytest.param(
+        "software_version",
+        18,
+        "software_version is not a string",
+        id="version-int",
     ),
 ]
 
@@ -603,6 +615,27 @@ def test_phase_training_field_defect_is_metadata_unreadable(
         "simulation/metadata.json",
         "model log",
     ]
+
+
+@pytest.mark.parametrize(
+    ("value", "problem"),
+    [
+        pytest.param(
+            _ABSENT,
+            "software_version (cobre_version before v0.18.0) is missing",
+            id="absent",
+        ),
+        pytest.param(None, "cobre_version is not a string", id="null"),
+    ],
+)
+def test_phase_v017_version_defect_is_metadata_unreadable(
+    tmp_path: Path, value: object, problem: str
+) -> None:
+    base = training_metadata(release="0.17.0")
+    ws = _workspace(tmp_path, training=_mutated(base, "cobre_version", value))
+    diag = _diagnose(ws, _job(ws, 0))
+    assert diag.rule_id == "cobre.metadata_unreadable"
+    assert diag.reason == f"training/metadata.json: {problem}"
 
 
 @pytest.mark.parametrize(
@@ -848,10 +881,124 @@ def test_shutdown_is_split_by_the_slurm_state(
     verdict = _verdict(ws, _job(ws, 0, state=state))
     assert (verdict.status, verdict.rule_id) == (status, rule_id)
     assert verdict.matched == (rule_id,)
-    expected = "training stopped by graceful_shutdown after 37 iterations"
+    expected = "training stopped on request after 37 iterations"
     if status is RunStatus.TIMEOUT:
         expected += f" (Slurm {state})"
     assert verdict.reason == expected
+
+
+def _stopped_workspace(tmp_path: Path) -> Workspace:
+    """What cobre v0.18.0 writes before it exits 5: partial training,
+    and a simulation that never ran a scenario."""
+    return _workspace(
+        tmp_path,
+        training=training_metadata(
+            status="partial",
+            iterations={"completed": 37},
+            convergence={"termination_reason": "graceful_shutdown"},
+        ),
+        simulation=simulation_metadata(
+            status="partial",
+            scenarios={"total": 100, "completed": 0, "failed": 0},
+        ),
+    )
+
+
+@pytest.mark.parametrize(
+    ("state", "status", "rule_id"),
+    [
+        ("TIMEOUT", RunStatus.TIMEOUT, "cobre.shutdown_timeout"),
+        ("FAILED", RunStatus.CANCELLED, "cobre.shutdown_cancelled"),
+        (None, RunStatus.CANCELLED, "cobre.shutdown_cancelled"),
+    ],
+)
+def test_shutdown_exit_five_is_split_by_the_slurm_state(
+    tmp_path: Path, state: str | None, status: RunStatus, rule_id: str
+) -> None:
+    ws = _stopped_workspace(tmp_path)
+    verdict = _verdict(ws, _job(ws, 5, state=state))
+    assert (verdict.status, verdict.rule_id) == (status, rule_id)
+    assert verdict.matched == (
+        rule_id,
+        "cobre.training_partial",
+        "cobre.simulation_incomplete",
+    )
+    expected = "training stopped on request after 37 iterations"
+    if status is RunStatus.TIMEOUT:
+        expected += f" (Slurm {state})"
+    assert verdict.reason == expected
+
+
+def test_shutdown_exit_five_through_the_lifecycle_reads_the_outputs(
+    tmp_path: Path,
+) -> None:
+    ws = _stopped_workspace(tmp_path)
+    diag = _diagnose(ws, _job(ws, 5, state="FAILED"))
+    assert diag.annotation() == (
+        "CANCELLED: training stopped on request after 37 iterations "
+        "[cobre.shutdown_cancelled]"
+    )
+    assert [i.source for i in diag.evidence] == [
+        "model.exit",
+        "training/metadata.json",
+        "simulation/metadata.json",
+        "model log",
+    ]
+
+
+def test_shutdown_exit_five_after_the_training_writes_is_cancelled(
+    tmp_path: Path,
+) -> None:
+    """A signal during the output writes still exits 5, but the training
+    metadata keeps its own termination_reason."""
+    ws = _workspace(
+        tmp_path,
+        simulation=simulation_metadata(
+            status="partial",
+            scenarios={"total": 100, "completed": 0, "failed": 0},
+        ),
+    )
+    diag = _diagnose(ws, _job(ws, 5))
+    assert diag.rule_id == "cobre.shutdown_cancelled"
+    assert diag.reason == "training stopped on request after 128 iterations"
+    assert diag.matched == (
+        "cobre.shutdown_cancelled",
+        "cobre.simulation_incomplete",
+    )
+
+
+def test_shutdown_exit_five_without_training_metadata_is_missing(
+    tmp_path: Path,
+) -> None:
+    ws = _workspace(tmp_path, training=None, simulation=None)
+    diag = _diagnose(ws, _job(ws, 5))
+    assert (diag.status, diag.rule_id) == (
+        RunStatus.RUNTIME_ERROR,
+        "cobre.training_metadata_missing",
+    )
+    assert diag.matched == (
+        "cobre.training_metadata_missing",
+        "cobre.simulation_metadata_missing",
+        "cobre.shutdown_cancelled",
+    )
+
+
+def test_shutdown_exit_five_with_training_disabled_has_no_count(
+    tmp_path: Path,
+) -> None:
+    """cobre exits 5 only after training; the reason still renders."""
+    ws = _workspace(
+        tmp_path,
+        enabled=case.Phases(training=False, simulation=True),
+        training=None,
+        simulation=simulation_metadata(
+            status="partial",
+            scenarios={"total": 100, "completed": 40, "failed": 0},
+        ),
+    )
+    diag = _diagnose(ws, _job(ws, 5))
+    assert diag.rule_id == "cobre.shutdown_cancelled"
+    assert diag.reason == "training stopped on request after ? iterations"
 
 
 def test_shutdown_through_the_lifecycle_entry_point_is_cancelled(
@@ -861,8 +1008,8 @@ def test_shutdown_through_the_lifecycle_entry_point_is_cancelled(
     diag = _diagnose(ws, _job(ws, 0))
     assert diag.rule_id == "cobre.shutdown_cancelled"
     assert diag.annotation() == (
-        "CANCELLED: training stopped by graceful_shutdown after 37 "
-        "iterations [cobre.shutdown_cancelled]"
+        "CANCELLED: training stopped on request after 37 iterations "
+        "[cobre.shutdown_cancelled]"
     )
 
 
@@ -907,7 +1054,7 @@ def test_completed_annotation_and_model_log_evidence(tmp_path: Path) -> None:
             "training/metadata.json",
             "status complete; termination_reason iteration_limit; "
             "iterations 128; final_lower_bound 1234.5; "
-            "cobre_version 0.17.0; world_size 1",
+            "cobre_version 0.18.0; world_size 1",
         ),
         (
             "plugin",
@@ -921,6 +1068,23 @@ def test_completed_annotation_and_model_log_evidence(tmp_path: Path) -> None:
             "Solver: HiGHS 1.11.0",
         ),
     ]
+
+
+@pytest.mark.parametrize("release", ["0.17.0", "0.18.0"])
+def test_completed_reads_either_version_key(
+    tmp_path: Path, release: str
+) -> None:
+    ws = _workspace(
+        tmp_path,
+        training=training_metadata(release=release),
+        simulation=simulation_metadata(release=release),
+    )
+    diag = _diagnose(ws, _job(ws, 0))
+    assert diag.rule_id == "cobre.completed"
+    assert (
+        f"cobre_version {release};"
+        in (_details(diag, "training/metadata.json")[0])
+    )
 
 
 @pytest.mark.parametrize(
@@ -1075,7 +1239,7 @@ def test_vocabulary_unknown_reason_adds_a_note_and_keeps_success(
     assert diag.reason.startswith("training bogus_rule after 128 iterations")
     assert _details(diag, "training/metadata.json")[-1] == (
         "termination_reason 'bogus_rule' is outside the cobre "
-        "v0.14.0-v0.17.0 vocabulary"
+        "v0.14.0-v0.18.0 vocabulary"
     )
 
 

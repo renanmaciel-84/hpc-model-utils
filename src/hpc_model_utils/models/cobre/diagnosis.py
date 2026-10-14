@@ -4,8 +4,10 @@ mapping (ticket-070).
 ``LOG_PATTERNS`` is empty because every cobre condition needs the exit
 code or a fact absent from a line. The L3 table never returns
 ``INFEASIBLE`` (an LP infeasibility is exit 3). The output metadata is
-read at exit 0 only, and ``primary_evidence`` is the exit file alone, so
-exits 1 and 2 (which write no metadata) stay ``DATA_ERROR``.
+read at exit 0 and at exit 5 (cobre v0.18.0 and later: a SIGTERM or
+SIGINT stopped training after its outputs and policy checkpoint were
+written), and ``primary_evidence`` is the exit file alone, so exits 1
+and 2 (which write no metadata) stay ``DATA_ERROR``.
 """
 
 from __future__ import annotations
@@ -29,7 +31,7 @@ from hpc_model_utils.models.cobre import case
 
 LOG_PATTERNS: tuple[LogPattern, ...] = ()
 
-# Pinned to cobre v0.14.0-v0.17.0: TERMINATION_REASONS are the RULE_*
+# Pinned to cobre v0.14.0-v0.18.0: TERMINATION_REASONS are the RULE_*
 # constants of crates/cobre-sddp/src/convergence/stopping_rule.rs, and the
 # Backend/Solver patterns match the labels written by
 # crates/cobre-cli/src/summary.rs::print_execution_topology
@@ -49,6 +51,15 @@ BACKEND_LINE = re.compile(r"^\s*Backend:\s+(\S.*?)\s*$")
 SOLVER_LINE = re.compile(r"^\s*Solver:\s+(\S.*?)\s*$")
 BACKEND_MPI = re.compile(r"^MPI\b")
 
+# cobre's exits: 0 completed, 1-4 the CliError classes, and from v0.18.0
+# 5, a stop on request (crates/cobre-cli/src/commands/run/mod.rs::RunOutcome).
+# A signal that arrives while the training outputs are written still exits
+# 5, with the metadata's own termination_reason.
+_STOPPED_ON_REQUEST = 5
+_KNOWN_EXITS = range(_STOPPED_ON_REQUEST + 1)
+_OUTPUT_EXITS = frozenset({0, _STOPPED_ON_REQUEST})
+# v0.18.0 renamed the metadata key cobre_version to software_version.
+_VERSION_KEYS = ("software_version", "cobre_version")
 _GRACEFUL_SHUTDOWN = "graceful_shutdown"
 _TIMEOUT_STATES = frozenset({"TIMEOUT", "DEADLINE"})
 _TRAINING_FILE = "training/metadata.json"
@@ -131,6 +142,15 @@ def _number_field(data: Mapping[str, object], dotted: str) -> int | float:
     return value
 
 
+def _cobre_version(data: Mapping[str, object]) -> str:
+    for key in _VERSION_KEYS:
+        if key in data:
+            return _str_field(data, key)
+    raise DataError(
+        "software_version (cobre_version before v0.18.0) is missing"
+    )
+
+
 def _training_summary(data: Mapping[str, object]) -> TrainingSummary:
     return TrainingSummary(
         status=_str_field(data, "status"),
@@ -138,7 +158,7 @@ def _training_summary(data: Mapping[str, object]) -> TrainingSummary:
         termination_reason=_str_field(data, "convergence.termination_reason"),
         lower_bound=_number_field(data, "bounds.final_lower_bound"),
         world_size=_int_field(data, "distribution.world_size"),
-        cobre_version=_str_field(data, "cobre_version"),
+        cobre_version=_cobre_version(data),
     )
 
 
@@ -222,7 +242,7 @@ def _read_outputs(ws: Workspace) -> RunOutputs:
     ):
         notes = (
             f"termination_reason {training.termination_reason!r} is outside "
-            "the cobre v0.14.0-v0.17.0 vocabulary",
+            "the cobre v0.14.0-v0.18.0 vocabulary",
         )
     return RunOutputs(
         phases=phases,
@@ -240,7 +260,11 @@ def extract_evidence(ws: Workspace, job: JobReport) -> CobreEvidence:
         code=job.process_exit,
         state=None if job.outcome is None else job.outcome.state,
         logs=_scan_logs(job.log_paths),
-        outputs=_read_outputs(ws) if job.process_exit == 0 else RunOutputs(),
+        outputs=(
+            _read_outputs(ws)
+            if job.process_exit in _OUTPUT_EXITS
+            else RunOutputs()
+        ),
     )
 
 
@@ -261,22 +285,23 @@ def _mpi_not_started(evidence: CobreEvidence) -> bool:
 
 
 def _unexpected_exit(evidence: CobreEvidence) -> bool:
-    return evidence.code is not None and evidence.code not in range(5)
+    return evidence.code is not None and evidence.code not in _KNOWN_EXITS
 
 
-def _graceful_shutdown(evidence: CobreEvidence) -> bool:
+def _stopped_on_request(evidence: CobreEvidence) -> bool:
     training = evidence.outputs.training
-    return training is not None and training.termination_reason == (
-        _GRACEFUL_SHUTDOWN
+    return evidence.code == _STOPPED_ON_REQUEST or (
+        training is not None
+        and training.termination_reason == _GRACEFUL_SHUTDOWN
     )
 
 
 def _shutdown_timeout(evidence: CobreEvidence) -> bool:
-    return _graceful_shutdown(evidence) and evidence.state in _TIMEOUT_STATES
+    return _stopped_on_request(evidence) and evidence.state in _TIMEOUT_STATES
 
 
 def _shutdown_cancelled(evidence: CobreEvidence) -> bool:
-    return _graceful_shutdown(evidence) and not _shutdown_timeout(evidence)
+    return _stopped_on_request(evidence) and not _shutdown_timeout(evidence)
 
 
 def _training_partial(evidence: CobreEvidence) -> bool:
@@ -317,9 +342,9 @@ class Rule:
 
 
 # ADR-052 L3 table: the first row whose ``applies`` predicate is true
-# wins. Rows 8-17 read only exit-0 evidence (``RunOutputs`` is empty at any
-# other exit). ``cobre.completed`` is the fallback -- true exactly when no
-# row of ``_DIAGNOSTIC_RULES`` applies.
+# wins. Rows 8-17 read only exit-0 and exit-5 evidence (``RunOutputs`` is
+# empty at any other exit). ``cobre.completed`` is the fallback -- true
+# exactly when no row of ``_DIAGNOSTIC_RULES`` applies.
 _DIAGNOSTIC_RULES: tuple[Rule, ...] = (
     Rule(
         "cobre.exit_unknown",
@@ -385,14 +410,14 @@ _DIAGNOSTIC_RULES: tuple[Rule, ...] = (
     Rule(
         "cobre.shutdown_timeout",
         RunStatus.TIMEOUT,
-        "training stopped by graceful_shutdown after {iterations} "
-        "iterations (Slurm {state})",
+        "training stopped on request after {iterations} iterations "
+        "(Slurm {state})",
         _shutdown_timeout,
     ),
     Rule(
         "cobre.shutdown_cancelled",
         RunStatus.CANCELLED,
-        "training stopped by graceful_shutdown after {iterations} iterations",
+        "training stopped on request after {iterations} iterations",
         _shutdown_cancelled,
     ),
     Rule(
@@ -459,6 +484,7 @@ def _fields(evidence: CobreEvidence) -> dict[str, object]:
         ),
         "nodes": evidence.logs.nodes,
         "world_size": _world_size(evidence),
+        "iterations": "?",
         "training_part": "training disabled",
         "simulation_part": "simulation disabled",
     }

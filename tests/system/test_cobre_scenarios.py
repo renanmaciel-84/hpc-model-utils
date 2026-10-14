@@ -39,6 +39,7 @@ from tests.support.cobre_case import (
     COBRE_EXECUTION_LINES,
     cobre_workspace,
     simulation_metadata,
+    training_metadata,
     write_outputs,
 )
 from tests.support.fake_slurm import FakeSlurm
@@ -156,6 +157,7 @@ class _Stub:
     stderr: tuple[str, ...] = ()
     world_size: int | None = None
     outputs: bool = True
+    training: Mapping[str, object] = field(default_factory=training_metadata)
     simulation: Mapping[str, object] = field(
         default_factory=simulation_metadata
     )
@@ -176,7 +178,9 @@ class _Outcome:
 def _payload(stub: _Stub, scratch: Path) -> dict[str, object]:
     files: dict[str, str] = {}
     if stub.outputs:
-        names = write_outputs(scratch, simulation=stub.simulation)
+        names = write_outputs(
+            scratch, training=stub.training, simulation=stub.simulation
+        )
         files = {
             name: (scratch / "output" / name).read_bytes().hex()
             for name in names
@@ -476,6 +480,65 @@ def test_cobre_scenario_incomplete_simulation_at_exit_zero_is_runtime_error(
     assert diagnosis.rule_id == "cobre.simulation_incomplete"
     assert _status_hooks(outcome) == [Hook("SetRuntimeError", ())]
     assert "7 completed, 0 failed, 10 total" in _annotations(outcome)[0]
+
+
+@pytest.mark.timeout(60)
+@pytest.mark.parametrize("release", ["0.17.0", "0.18.0"])
+def test_cobre_scenario_both_metadata_releases_succeed(
+    fake_slurm: FakeSlurm, tmp_path: Path, release: str
+) -> None:
+    outcome = _run_cobre(
+        tmp_path,
+        fake_slurm,
+        Resources("batch", 4, max_cores_per_node=4),
+        _Stub(
+            training=training_metadata(release=release),
+            simulation=simulation_metadata(release=release),
+        ),
+    )
+
+    diagnosis = outcome.state.diagnosis
+    assert diagnosis is not None
+    assert diagnosis.rule_id == "cobre.completed"
+    assert _status_hooks(outcome) == [Hook("SetSuccess", ())]
+
+
+@pytest.mark.timeout(60)
+def test_cobre_scenario_stop_on_request_is_cancelled_and_archives_outputs(
+    fake_slurm: FakeSlurm, tmp_path: Path
+) -> None:
+    outcome = _run_cobre(
+        tmp_path,
+        fake_slurm,
+        Resources("batch", 4, max_cores_per_node=4),
+        _Stub(
+            exit_code=5,
+            training=training_metadata(
+                status="partial",
+                iterations={"completed": 37},
+                convergence={"termination_reason": "graceful_shutdown"},
+            ),
+            simulation=simulation_metadata(
+                status="partial",
+                scenarios={"total": 100, "completed": 0, "failed": 0},
+            ),
+        ),
+    )
+
+    diagnosis = outcome.state.diagnosis
+    assert diagnosis is not None
+    assert diagnosis.status is RunStatus.CANCELLED
+    assert diagnosis.rule_id == "cobre.shutdown_cancelled"
+    assert _status_hooks(outcome) == [Hook("SetRuntimeError", ())]
+    assert _annotations(outcome)[0].startswith(
+        "CANCELLED: training stopped on request after 37 iterations"
+    )
+    assert outcome.bridge_calls == []
+    assert {
+        "saidas/training.zip",
+        "saidas/policy.zip",
+        "saidas/training/metadata.json",
+    } <= _uploaded_keys(outcome.store)
 
 
 @pytest.mark.timeout(60)
