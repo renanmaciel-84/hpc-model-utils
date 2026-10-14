@@ -1,9 +1,10 @@
 """ADR-025/R105: synthetic cobre cases, output trees and ELF stubs.
 
 No cobre fixture is vendored: the case is built in code, shaped after
-cobre v0.17.0's ``examples/1dtoy`` and the metadata structs of
-``crates/cobre-io/src/output/manifest.rs``. Every builder writes only
-under the caller's ``tmp_path`` (or the directory it is handed).
+cobre's ``examples/1dtoy`` and the metadata structs of
+``crates/cobre-io/src/output/manifest.rs`` (v0.18.0 by default, v0.17.0 on
+request). Every builder writes only under the caller's ``tmp_path`` (or the
+directory it is handed).
 """
 
 from __future__ import annotations
@@ -18,6 +19,7 @@ from hpc_model_utils.core.workspace import Workspace
 from tests.support.decks import DeckWorkspace
 
 _PLACEHOLDER_PARQUET = b"PAR1 placeholder PAR1"
+COBRE_RELEASE = "0.18.0"
 _PLACEHOLDER_CUTS = b"cobre-cuts placeholder"
 
 COBRE_EXECUTION_LINES: tuple[str, ...] = (
@@ -26,8 +28,9 @@ COBRE_EXECUTION_LINES: tuple[str, ...] = (
     "  Backend:   MPI (MPICH 4.2.3, MPI 4.1)",
 )
 """The ``Execution`` block rank 0 prints to stderr before loading the case:
-cobre v0.17.0 ``crates/cobre-cli/src/summary.rs::print_execution_topology``
-for an MPI backend (the model-log lines ticket-070 reads)."""
+cobre v0.17.0 and v0.18.0
+``crates/cobre-cli/src/summary.rs::print_execution_topology`` for an MPI
+backend (the model-log lines ticket-070 reads)."""
 
 
 def _json_bytes(data: object) -> bytes:
@@ -148,11 +151,22 @@ def _distribution() -> dict[str, object]:
     }
 
 
-def training_metadata(**fields: object) -> dict[str, object]:
-    """cobre v0.17.0 ``TrainingMetadata``; nested mappings in ``fields``
-    are merged into the defaults, any other value replaces its key."""
+def _software(release: str) -> dict[str, object]:
+    """The version header: v0.18.0 replaced ``cobre_version`` with
+    ``software`` and ``software_version``."""
+    if tuple(int(part) for part in release.split(".")) < (0, 18, 0):
+        return {"cobre_version": release}
+    return {"software": "cobre", "software_version": release}
+
+
+def training_metadata(
+    *, release: str = COBRE_RELEASE, **fields: object
+) -> dict[str, object]:
+    """cobre ``TrainingMetadata`` as ``release`` writes it; nested
+    mappings in ``fields`` are merged into the defaults, any other value
+    replaces its key."""
     defaults: dict[str, object] = {
-        "cobre_version": "0.17.0",
+        **_software(release),
         "hostname": "node001",
         "solver": "highs",
         "solver_version": "1.11.0",
@@ -197,11 +211,13 @@ def training_metadata(**fields: object) -> dict[str, object]:
     return _merge(defaults, fields)
 
 
-def simulation_metadata(**fields: object) -> dict[str, object]:
-    """cobre v0.17.0 ``SimulationMetadata``; merge rules as in
-    ``training_metadata``."""
+def simulation_metadata(
+    *, release: str = COBRE_RELEASE, **fields: object
+) -> dict[str, object]:
+    """cobre ``SimulationMetadata`` as ``release`` writes it; merge rules
+    as in ``training_metadata``."""
     defaults: dict[str, object] = {
-        "cobre_version": "0.17.0",
+        **_software(release),
         "hostname": "node001",
         "solver": "highs",
         "solver_version": "1.11.0",

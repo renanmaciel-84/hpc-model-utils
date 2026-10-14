@@ -6,7 +6,18 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/).
 
 ## The 2.x series
 
-2.0.0 is the drop-in v2 engine, with the status-semantics change described in [`docs/notices/v2-status-semantics.md`](docs/notices/v2-status-semantics.md). 2.0.1 and 2.0.2 carry the versioned workflow definitions and the relay fixes that the NEWAVE and DECOMP workflows run. 2.1.0 adds cobre. 2.2.0 tightens the DECOMP FC stage check ([`docs/notices/v2-fc-stage-mismatch.md`](docs/notices/v2-fc-stage-mismatch.md)), cleans the logs and adds a cobre results dashboard. 2.2.1 fixes the reporting of S3 upload and read failures and the cancellation of a terminated run. 2.2.2 fixes the Upload NEWAVE ingest of large offline runs.
+2.0.0 is the drop-in v2 engine, with the status-semantics change described in [`docs/notices/v2-status-semantics.md`](docs/notices/v2-status-semantics.md). 2.0.1 and 2.0.2 carry the versioned workflow definitions and the relay fixes that the NEWAVE and DECOMP workflows run. 2.1.0 adds cobre. 2.2.0 tightens the DECOMP FC stage check ([`docs/notices/v2-fc-stage-mismatch.md`](docs/notices/v2-fc-stage-mismatch.md)), cleans the logs and adds a cobre results dashboard. 2.2.1 fixes the reporting of S3 upload and read failures and the cancellation of a terminated run. 2.2.2 fixes the Upload NEWAVE ingest of large offline runs. 2.2.3 supports cobre v0.18.0.
+
+## [2.2.3] - 2026-10-14
+
+### Fixed
+
+- A successful cobre v0.18.0 run no longer reports `RUNTIME_ERROR` (`cobre.metadata_unreadable`, `cobre_version is missing`). v0.18.0 names its release `software_version` in `training/metadata.json`, and the diagnosis now reads that key, or `cobre_version` from earlier releases.
+- A cobre v0.18.0 run stopped by SIGTERM or SIGINT writes its training outputs and policy checkpoint, then exits 5. The diagnosis now reads those outputs and reports `CANCELLED` (`cobre.shutdown_cancelled`), or `TIMEOUT` (`cobre.shutdown_timeout`) when Slurm reports a timeout, instead of `RUNTIME_ERROR` (`cobre.unexpected_exit`, `cobre exited 5`). The outputs are archived as before, and ModelOps marks the run as a runtime error, as it does every cancelled run.
+
+### Changed
+
+- The cobre stop reasons read `training stopped on request after <n> iterations` instead of `training stopped by graceful_shutdown after <n> iterations`; the rule ids are unchanged.
 
 ## [2.2.2] - 2026-10-09
 
