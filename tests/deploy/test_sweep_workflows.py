@@ -135,8 +135,8 @@ NEW_PARAMETERS = (
 SHAPE_KEYS = ("description", "type", "visible", "regexPattern", "format")
 
 UTILS_PIN = ("v1.0.1", "f61dd5633c8c2fd339bf51300cf7ca692407ac8c")
-SYNTHESIS_PIN = ("v2.4.5", "00305719ee16d92d02d645364bf054e7c9cb673d")
-RANKING_TAG = "v1.1.0"
+SYNTHESIS_PIN = ("v2.4.6", "3df54dff1d510529a6ef159564c124a1624acb27")
+RANKING_TAG = "v1.1.1"
 
 TASK_TOKEN = re.compile(r"@@task:([a-z0-9][a-z0-9-]*)@@")
 UUID4 = re.compile(
@@ -577,32 +577,32 @@ def _declare_sha(doc: dict[str, Any]) -> None:
         (
             "ranqueamento",
             _set_field("utilsAppVersion", "defaultValue", "v1.0.0"),
-            r"utilsAppVersion is not v1\.0\.1",
+            rf"utilsAppVersion is not {re.escape(UTILS_PIN[0])}",
         ),
         (
             "ranqueamento",
             _set_field("utilsAppSha", "defaultValue", "b" * 40),
-            r"utilsAppSha is not the v1\.0\.1 commit",
+            rf"utilsAppSha is not the {re.escape(UTILS_PIN[0])} commit",
         ),
         (
             "ranqueamento",
             _set_field("synthesisAppVersion", "defaultValue", "v2.3.0"),
-            r"synthesisAppVersion is not v2\.4\.5",
+            rf"synthesisAppVersion is not {re.escape(SYNTHESIS_PIN[0])}",
         ),
         (
             "ranqueamento",
             _set_field("synthesisAppSha", "defaultValue", "abc"),
-            r"synthesisAppSha is not the v2\.4\.5 commit",
+            rf"synthesisAppSha is not the {re.escape(SYNTHESIS_PIN[0])} commit",
         ),
         (
             "ranqueamento",
             _set_field("rankingAppVersion", "defaultValue", "main"),
-            r"rankingAppVersion is not v1\.1\.0",
+            rf"rankingAppVersion is not {re.escape(RANKING_TAG)}",
         ),
         (
             "ranqueamento",
-            _set_field("rankingAppVersion", "defaultValue", "v1.1.1"),
-            r"rankingAppVersion is not v1\.1\.0",
+            _set_field("rankingAppVersion", "defaultValue", "v1.1.2"),
+            rf"rankingAppVersion is not {re.escape(RANKING_TAG)}",
         ),
         ("upload-versao", _declare_sha, r"declares utilsAppSha"),
     ],
