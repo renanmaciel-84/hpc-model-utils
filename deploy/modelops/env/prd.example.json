@@ -13,6 +13,7 @@
     "queueNewave": "example-queue-newave",
     "queueDecomp": "example-queue-decomp",
     "queueTest": "example-queue-test",
+    "queueCobre": "example-queue-cobre",
     "userLocalBin": "/example/local-bin/"
   },
   "workflows": {

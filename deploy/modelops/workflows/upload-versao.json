@@ -94,28 +94,36 @@
       "alias": null,
       "taskId": "@@task:create-workdir@@",
       "executionCriteria": "",
-      "onFailure": 1
+      "onFailure": 1,
+      "hidden": false,
+      "taskName": null
     },
     {
       "workflowTaskId": "eb99d164-4aea-4aba-b16c-e84646d03628",
       "alias": null,
       "taskId": "@@task:v1-clone-upload-cli@@",
       "executionCriteria": "",
-      "onFailure": 1
+      "onFailure": 1,
+      "hidden": false,
+      "taskName": null
     },
     {
       "workflowTaskId": "5c45bb67-c7c9-4827-9f4e-d7cf0358dafb",
       "alias": null,
       "taskId": "@@task:v1-upload-version@@",
       "executionCriteria": "",
-      "onFailure": 1
+      "onFailure": 1,
+      "hidden": false,
+      "taskName": null
     },
     {
       "workflowTaskId": "ef6153e2-7c9e-46b3-bb20-5cd2d664859f",
       "alias": null,
       "taskId": "@@task:remove-workdir@@",
       "executionCriteria": "",
-      "onFailure": 1
+      "onFailure": 1,
+      "hidden": false,
+      "taskName": null
     }
   ],
   "cancelationTasks": [

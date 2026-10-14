@@ -214,7 +214,7 @@
       "description": "Versao do hpc-model-utils a ser utilizada",
       "name": "utilsAppVersion",
       "type": "String",
-      "defaultValue": "v2.2.1",
+      "defaultValue": "v2.2.2",
       "visible": false,
       "regexPattern": "",
       "format": "",
@@ -225,7 +225,7 @@
       "description": "Commit do hpc-model-utils fixado junto com a versao",
       "name": "utilsAppSha",
       "type": "String",
-      "defaultValue": "3e94f2d89207704506163b9ea5d2ece8ec5a995b",
+      "defaultValue": "0b7fc6cd7a355dc7b8dcd33d442246ad2eae9275",
       "visible": false,
       "regexPattern": "",
       "format": "",
@@ -236,7 +236,7 @@
       "description": "Versao do sintetizador-newave a ser utilizada",
       "name": "synthesisAppVersion",
       "type": "String",
-      "defaultValue": "v2.4.5",
+      "defaultValue": "v2.4.6",
       "visible": false,
       "regexPattern": "",
       "format": "",
@@ -247,7 +247,7 @@
       "description": "Commit do sintetizador-newave fixado junto com a versao",
       "name": "synthesisAppSha",
       "type": "String",
-      "defaultValue": "00305719ee16d92d02d645364bf054e7c9cb673d",
+      "defaultValue": "3df54dff1d510529a6ef159564c124a1624acb27",
       "visible": false,
       "regexPattern": "",
       "format": "",
@@ -283,63 +283,81 @@
       "alias": null,
       "taskId": "@@task:ensure-tools@@",
       "executionCriteria": "",
-      "onFailure": 1
+      "onFailure": 1,
+      "hidden": false,
+      "taskName": null
     },
     {
       "workflowTaskId": "3af8b15c-bccf-4031-a866-232417da90ba",
       "alias": null,
       "taskId": "@@task:create-workdir@@",
       "executionCriteria": "",
-      "onFailure": 1
+      "onFailure": 1,
+      "hidden": false,
+      "taskName": null
     },
     {
       "workflowTaskId": "ef6153e2-7c9e-46b3-bb20-5cd2d664859f",
       "alias": null,
       "taskId": "@@task:fetch-executables@@",
       "executionCriteria": "",
-      "onFailure": 1
+      "onFailure": 1,
+      "hidden": false,
+      "taskName": null
     },
     {
       "workflowTaskId": "1d16934f-fec0-47d6-8fb9-72f9447f2612",
       "alias": null,
       "taskId": "@@task:fetch-inputs@@",
       "executionCriteria": "",
-      "onFailure": 1
+      "onFailure": 1,
+      "hidden": false,
+      "taskName": null
     },
     {
       "workflowTaskId": "ccd23b31-abe7-4beb-ae35-357866f879b7",
       "alias": null,
       "taskId": "@@task:extract-sanitize@@",
       "executionCriteria": "",
-      "onFailure": 1
+      "onFailure": 1,
+      "hidden": false,
+      "taskName": null
     },
     {
       "workflowTaskId": "ce68b099-ec33-4623-9692-4a1f7065447b",
       "alias": null,
       "taskId": "@@task:preprocess@@",
       "executionCriteria": "",
-      "onFailure": 1
+      "onFailure": 1,
+      "hidden": false,
+      "taskName": null
     },
     {
       "workflowTaskId": "f7bab42a-5f53-42a8-92ec-a7434c1d35ad",
       "alias": null,
       "taskId": "@@task:run@@",
       "executionCriteria": "",
-      "onFailure": 1
+      "onFailure": 1,
+      "hidden": false,
+      "taskName": null
     },
     {
       "workflowTaskId": "6bd551d0-77f7-4525-84a8-20caa91a55ca",
       "alias": null,
       "taskId": "@@task:result-upload@@",
       "executionCriteria": "",
-      "onFailure": 1
+      "onFailure": 1,
+      "hidden": false,
+      "taskName": null
     },
     {
       "workflowTaskId": "1074ebb6-3f9f-4db7-a514-fe6cae0ee85e",
       "alias": null,
       "taskId": "@@task:remove-workdir@@",
       "executionCriteria": "",
-      "onFailure": 1
+      "onFailure": 1,
+      "hidden": false,
+      "taskName": null
     }
   ],
   "cancelationTasks": [
