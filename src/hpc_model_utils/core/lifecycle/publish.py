@@ -10,6 +10,10 @@ reused prefix (R115) is covered twice -- a pre-marker RUNTIME_ERROR
 overwrite before the first new artifact (covers a kill mid-upload)
 and a best-effort RUNTIME_ERROR overwrite on any later failure (covers
 everything else) -- and nothing already there is ever deleted (R5).
+
+ADR-083 places the telemetry export before any upload, uploads its three
+files after ``sintese/*`` and before ``saidas/status.modelops``, and emits
+its headline hooks after the last upload.
 """
 
 from __future__ import annotations
@@ -47,6 +51,7 @@ from hpc_model_utils.core.state import (
     render_status,
     write_projections,
 )
+from hpc_model_utils.core.telemetry import Exported, export_telemetry
 from hpc_model_utils.core.workspace import Workspace
 from hpc_model_utils.infra.errors import (
     ObjectNotFoundError,
@@ -138,6 +143,8 @@ def publish(
         )
     diagnosis = state.diagnosis
     assert diagnosis is not None
+
+    telemetry = export_telemetry(ws, state)
 
     reused = store.exists_any(prefix.join("saidas/"))
     previous: str | None = None
@@ -232,6 +239,11 @@ def publish(
                     rel = f"sintese/{entry.name}"
                     _upload(entry, prefix.join(rel), rel)
 
+        if isinstance(telemetry, Exported):
+            for path in telemetry.files:
+                rel = f"saidas/telemetry/{path.name}"
+                _upload(path, prefix.join(rel), rel)
+
         rel = "saidas/status.modelops"
         current = rel
         status_local = staging / "status.modelops"
@@ -282,6 +294,10 @@ def publish(
                 )
         reporter.artifacts_path(uri)
         raise StorageError(f"upload of {current} failed: {exc}") from exc
+
+    if isinstance(telemetry, Exported):
+        for key, value in telemetry.headline:
+            reporter.metadata(key, value)
 
     reporter.artifacts_path(uri)
     annotation = diagnosis.annotation()

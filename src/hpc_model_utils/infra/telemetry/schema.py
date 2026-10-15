@@ -1,7 +1,11 @@
-"""ADR-068/ADR-070/ADR-093/ADR-075: the telemetry column contract."""
+"""ADR-068/ADR-070/ADR-093/ADR-075: the telemetry column contract.
+
+It also holds the ADR-071/ADR-076/ADR-077/ADR-085 roll-up specs.
+"""
 
 from __future__ import annotations
 
+import math
 import re
 from dataclasses import dataclass
 from typing import Final
@@ -16,6 +20,49 @@ ERROR_KIND: Final = "hpcmu.telemetry.error"
 SAMPLES_KIND: Final = "hpcmu.telemetry.samples"
 WORKSPACE_KIND: Final = "hpcmu.telemetry.workspace"
 SUMMARY_KIND: Final = "hpcmu.telemetry.summary"
+
+# ADR-085: the files published below saidas/telemetry, in upload order.
+SAMPLES_FILE: Final = "samples.parquet"
+WORKSPACE_FILE: Final = "workspace.parquet"
+SUMMARY_FILE: Final = "summary.json"
+EXPORT_FILES: Final = (SAMPLES_FILE, WORKSPACE_FILE, SUMMARY_FILE)
+
+
+@dataclass(frozen=True, slots=True)
+class MetadataKey:
+    name: str
+    meaning: str
+
+
+# R52: the key-value metadata of both Parquet files.
+PARQUET_METADATA_KEYS: Final[tuple[MetadataKey, ...]] = (
+    MetadataKey(
+        name="hpcmu.telemetry.schema_version",
+        meaning="SCHEMA_VERSION as a decimal string",
+    ),
+    MetadataKey(
+        name="hpcmu.telemetry.kind",
+        meaning="SAMPLES_KIND or WORKSPACE_KIND",
+    ),
+    MetadataKey(
+        name="hpcmu.tool_version",
+        meaning="the hpc-model-utils version that ran the export",
+    ),
+    MetadataKey(
+        name="hpcmu.run_id",
+        meaning="the run_id of state.json",
+    ),
+    MetadataKey(
+        name="hpcmu.model",
+        meaning="the plugin name of the run (state.json plugin)",
+    ),
+    MetadataKey(
+        name="hpcmu.headers",
+        meaning=(
+            "the JSON list of the valid staging headers, in sample sort order"
+        ),
+    ),
+)
 
 DTYPES: Final = frozenset(
     {
@@ -802,6 +849,354 @@ WORKSPACE_COLUMNS: Final[tuple[Column, ...]] = (
     ),
 )
 
+STAT_AGGREGATES: Final = ("min", "mean", "p95", "p99", "max", "total")
+
+
+@dataclass(frozen=True, slots=True)
+class StatSpec:
+    """ADR-071/ADR-076: the summary.json statistics of one column.
+
+    The published name of an aggregate a other than total is
+    f"{column}_{a}". The published name of the total is total_name, stored
+    literally, and None without a total. A statistic with no contributing
+    value is absent, never 0 (ADR-076), so an all-null column has no
+    statistic: its Parquet column keeps its declared type and is all null
+    (ADR-070), and it emits no headline hook key (ADR-077).
+    """
+
+    column: str
+    aggregates: tuple[str, ...]
+    total_name: str | None
+
+
+# One row per non-identity column except dt_s, which feeds the gap fields
+# instead. Gauges and levels get min, mean, p95, max. Rates (bytes/s, 1/s)
+# get mean, p95, max, total, where a total is sum(rate * dt_s). The per-op
+# latencies get no mean: a dt-weighted mean of a per-interval average is
+# not the mean latency of the operations. High-water marks and Δ counts get
+# max only. p99 is only the R57 sampler cost gate.
+SAMPLE_STATS: Final[tuple[StatSpec, ...]] = (
+    StatSpec(
+        column="sample_cost_ms",
+        aggregates=("mean", "p95", "p99", "max"),
+        total_name=None,
+    ),
+    StatSpec(
+        column="sampler_maxrss_bytes",
+        aggregates=("max",),
+        total_name=None,
+    ),
+    StatSpec(
+        column="cpu_busy_cores",
+        aggregates=("min", "mean", "p95", "max"),
+        total_name=None,
+    ),
+    StatSpec(
+        column="cpu_util",
+        aggregates=("min", "mean", "p95", "max"),
+        total_name=None,
+    ),
+    StatSpec(
+        column="cpu_user_cores",
+        aggregates=("min", "mean", "p95", "max"),
+        total_name=None,
+    ),
+    StatSpec(
+        column="cpu_system_cores",
+        aggregates=("min", "mean", "p95", "max"),
+        total_name=None,
+    ),
+    StatSpec(
+        column="cpu_iowait_cores",
+        aggregates=("min", "mean", "p95", "max"),
+        total_name=None,
+    ),
+    StatSpec(
+        column="cpu_steal_cores",
+        aggregates=("min", "mean", "p95", "max"),
+        total_name=None,
+    ),
+    StatSpec(
+        column="cpu_core_util_min",
+        aggregates=("min", "mean", "p95", "max"),
+        total_name=None,
+    ),
+    StatSpec(
+        column="cpu_core_util_p50",
+        aggregates=("min", "mean", "p95", "max"),
+        total_name=None,
+    ),
+    StatSpec(
+        column="cpu_core_util_max",
+        aggregates=("min", "mean", "p95", "max"),
+        total_name=None,
+    ),
+    StatSpec(
+        column="cpu_active_cores",
+        aggregates=("min", "mean", "p95", "max"),
+        total_name=None,
+    ),
+    StatSpec(
+        column="load1",
+        aggregates=("min", "mean", "p95", "max"),
+        total_name=None,
+    ),
+    StatSpec(
+        column="procs_running",
+        aggregates=("min", "mean", "p95", "max"),
+        total_name=None,
+    ),
+    StatSpec(
+        column="procs_blocked",
+        aggregates=("min", "mean", "p95", "max"),
+        total_name=None,
+    ),
+    StatSpec(
+        column="mem_used_bytes",
+        aggregates=("min", "mean", "p95", "max"),
+        total_name=None,
+    ),
+    StatSpec(
+        column="mem_available_bytes",
+        aggregates=("min", "mean", "p95", "max"),
+        total_name=None,
+    ),
+    StatSpec(
+        column="mem_anon_bytes",
+        aggregates=("min", "mean", "p95", "max"),
+        total_name=None,
+    ),
+    StatSpec(
+        column="mem_cached_bytes",
+        aggregates=("min", "mean", "p95", "max"),
+        total_name=None,
+    ),
+    StatSpec(
+        column="mem_shmem_bytes",
+        aggregates=("min", "mean", "p95", "max"),
+        total_name=None,
+    ),
+    StatSpec(
+        column="mem_dirty_bytes",
+        aggregates=("min", "mean", "p95", "max"),
+        total_name=None,
+    ),
+    StatSpec(
+        column="mem_writeback_bytes",
+        aggregates=("min", "mean", "p95", "max"),
+        total_name=None,
+    ),
+    StatSpec(
+        column="mem_slab_bytes",
+        aggregates=("min", "mean", "p95", "max"),
+        total_name=None,
+    ),
+    StatSpec(
+        column="swap_used_bytes",
+        aggregates=("min", "mean", "p95", "max"),
+        total_name=None,
+    ),
+    StatSpec(
+        column="major_faults_per_s",
+        aggregates=("mean", "p95", "max", "total"),
+        total_name="major_faults_total",
+    ),
+    StatSpec(
+        column="oom_kills",
+        aggregates=("max",),
+        total_name=None,
+    ),
+    StatSpec(
+        column="job_cpu_cores",
+        aggregates=("min", "mean", "p95", "max"),
+        total_name=None,
+    ),
+    StatSpec(
+        column="job_mem_bytes",
+        aggregates=("min", "mean", "p95", "max"),
+        total_name=None,
+    ),
+    StatSpec(
+        column="job_mem_anon_bytes",
+        aggregates=("min", "mean", "p95", "max"),
+        total_name=None,
+    ),
+    StatSpec(
+        column="job_mem_file_bytes",
+        aggregates=("min", "mean", "p95", "max"),
+        total_name=None,
+    ),
+    StatSpec(
+        column="job_mem_shmem_bytes",
+        aggregates=("min", "mean", "p95", "max"),
+        total_name=None,
+    ),
+    StatSpec(
+        column="job_mem_peak_bytes",
+        aggregates=("max",),
+        total_name=None,
+    ),
+    StatSpec(
+        column="job_pids",
+        aggregates=("min", "mean", "p95", "max"),
+        total_name=None,
+    ),
+    StatSpec(
+        column="job_oom_kills",
+        aggregates=("max",),
+        total_name=None,
+    ),
+    StatSpec(
+        column="psi_cpu_some",
+        aggregates=("min", "mean", "p95", "max"),
+        total_name=None,
+    ),
+    StatSpec(
+        column="psi_mem_some",
+        aggregates=("min", "mean", "p95", "max"),
+        total_name=None,
+    ),
+    StatSpec(
+        column="psi_mem_full",
+        aggregates=("min", "mean", "p95", "max"),
+        total_name=None,
+    ),
+    StatSpec(
+        column="psi_io_some",
+        aggregates=("min", "mean", "p95", "max"),
+        total_name=None,
+    ),
+    StatSpec(
+        column="psi_io_full",
+        aggregates=("min", "mean", "p95", "max"),
+        total_name=None,
+    ),
+    StatSpec(
+        column="disk_read_bytes_per_s",
+        aggregates=("mean", "p95", "max", "total"),
+        total_name="disk_read_bytes_total",
+    ),
+    StatSpec(
+        column="disk_write_bytes_per_s",
+        aggregates=("mean", "p95", "max", "total"),
+        total_name="disk_write_bytes_total",
+    ),
+    StatSpec(
+        column="disk_busy_max",
+        aggregates=("min", "mean", "p95", "max"),
+        total_name=None,
+    ),
+    StatSpec(
+        column="nfs_read_bytes_per_s",
+        aggregates=("mean", "p95", "max", "total"),
+        total_name="nfs_read_bytes_total",
+    ),
+    StatSpec(
+        column="nfs_write_bytes_per_s",
+        aggregates=("mean", "p95", "max", "total"),
+        total_name="nfs_write_bytes_total",
+    ),
+    StatSpec(
+        column="nfs_server_read_bytes_per_s",
+        aggregates=("mean", "p95", "max", "total"),
+        total_name="nfs_server_read_bytes_total",
+    ),
+    StatSpec(
+        column="nfs_server_write_bytes_per_s",
+        aggregates=("mean", "p95", "max", "total"),
+        total_name="nfs_server_write_bytes_total",
+    ),
+    StatSpec(
+        column="nfs_read_ops_per_s",
+        aggregates=("mean", "p95", "max", "total"),
+        total_name="nfs_read_ops_total",
+    ),
+    StatSpec(
+        column="nfs_write_ops_per_s",
+        aggregates=("mean", "p95", "max", "total"),
+        total_name="nfs_write_ops_total",
+    ),
+    StatSpec(
+        column="nfs_ops_per_s",
+        aggregates=("mean", "p95", "max", "total"),
+        total_name="nfs_ops_total",
+    ),
+    StatSpec(
+        column="nfs_read_rtt_ms",
+        aggregates=("min", "p95", "max"),
+        total_name=None,
+    ),
+    StatSpec(
+        column="nfs_write_rtt_ms",
+        aggregates=("min", "p95", "max"),
+        total_name=None,
+    ),
+    StatSpec(
+        column="net_rx_bytes_per_s",
+        aggregates=("mean", "p95", "max", "total"),
+        total_name="net_rx_bytes_total",
+    ),
+    StatSpec(
+        column="net_tx_bytes_per_s",
+        aggregates=("mean", "p95", "max", "total"),
+        total_name="net_tx_bytes_total",
+    ),
+    StatSpec(
+        column="net_errors_per_s",
+        aggregates=("mean", "p95", "max", "total"),
+        total_name="net_errors_total",
+    ),
+    StatSpec(
+        column="efa_rx_bytes_per_s",
+        aggregates=("mean", "p95", "max", "total"),
+        total_name="efa_rx_bytes_total",
+    ),
+    StatSpec(
+        column="efa_tx_bytes_per_s",
+        aggregates=("mean", "p95", "max", "total"),
+        total_name="efa_tx_bytes_total",
+    ),
+)
+
+# R54: the workspace maxima and the minimum free bytes.
+WORKSPACE_STATS: Final[tuple[StatSpec, ...]] = (
+    StatSpec(
+        column="apparent_bytes",
+        aggregates=("max",),
+        total_name=None,
+    ),
+    StatSpec(
+        column="allocated_bytes",
+        aggregates=("max",),
+        total_name=None,
+    ),
+    StatSpec(
+        column="files",
+        aggregates=("max",),
+        total_name=None,
+    ),
+    StatSpec(
+        column="dirs",
+        aggregates=("max",),
+        total_name=None,
+    ),
+    StatSpec(
+        column="walk_s",
+        aggregates=("max",),
+        total_name=None,
+    ),
+    StatSpec(
+        column="fs_used_bytes",
+        aggregates=("max",),
+        total_name=None,
+    ),
+    StatSpec(
+        column="fs_avail_bytes",
+        aggregates=("min",),
+        total_name=None,
+    ),
+)
+
 HEADER_FIELDS: Final[tuple[HeaderField, ...]] = (
     HeaderField(
         name="kind",
@@ -956,6 +1351,273 @@ ERROR_FIELDS: Final = ("kind", "ts", "source", "error", "message")
 SAMPLE_SORT_KEYS: Final = ("phase", "job_id", "restart", "node_index", "ts")
 WORKSPACE_SORT_KEYS: Final = ("phase", "job_id", "restart", "ts")
 
+HEADLINE_KEY_PREFIX: Final = "telemetry."
+WORKSPACE_SCOPE: Final = "workspace"
+HEADLINE_FORMATS: Final = frozenset({"bytes", "cores", "fraction"})
+# node_rows: the statistic over the pooled rows of every node and restart,
+# so the value is a per-node figure. sum_nodes: the sum over the rows of
+# every node and restart, a whole-job figure. walks: over the walks of the
+# reported jobs.
+HEADLINE_POOLINGS: Final = frozenset({"node_rows", "sum_nodes", "walks"})
+
+
+@dataclass(frozen=True, slots=True)
+class HeadlineSpec:
+    """ADR-077: one summary.json headline value and its hook.
+
+    scope is a PHASES value or WORKSPACE_SCOPE, and source is SAMPLES_FILE
+    or WORKSPACE_FILE. key is the literal summary.json headline key
+    <scope>.<stem>, and the hook key is HEADLINE_KEY_PREFIX + key.
+    """
+
+    scope: str
+    source: str
+    column: str
+    aggregate: str
+    key: str
+    pooling: str
+    fmt: str
+
+
+HEADLINE: Final[tuple[HeadlineSpec, ...]] = (
+    HeadlineSpec(
+        scope="model",
+        source=SAMPLES_FILE,
+        column="job_mem_peak_bytes",
+        aggregate="max",
+        key="model.job_mem_peak_bytes_max",
+        pooling="node_rows",
+        fmt="bytes",
+    ),
+    HeadlineSpec(
+        scope="model",
+        source=SAMPLES_FILE,
+        column="mem_available_bytes",
+        aggregate="min",
+        key="model.mem_available_bytes_min",
+        pooling="node_rows",
+        fmt="bytes",
+    ),
+    HeadlineSpec(
+        scope="model",
+        source=SAMPLES_FILE,
+        column="cpu_busy_cores",
+        aggregate="mean",
+        key="model.cpu_busy_cores_mean",
+        pooling="node_rows",
+        fmt="cores",
+    ),
+    HeadlineSpec(
+        scope="model",
+        source=SAMPLES_FILE,
+        column="cpu_busy_cores",
+        aggregate="p95",
+        key="model.cpu_busy_cores_p95",
+        pooling="node_rows",
+        fmt="cores",
+    ),
+    HeadlineSpec(
+        scope="model",
+        source=SAMPLES_FILE,
+        column="cpu_util",
+        aggregate="mean",
+        key="model.cpu_util_mean",
+        pooling="node_rows",
+        fmt="fraction",
+    ),
+    HeadlineSpec(
+        scope="model",
+        source=SAMPLES_FILE,
+        column="nfs_read_bytes_per_s",
+        aggregate="total",
+        key="model.nfs_read_bytes_total",
+        pooling="sum_nodes",
+        fmt="bytes",
+    ),
+    HeadlineSpec(
+        scope="model",
+        source=SAMPLES_FILE,
+        column="nfs_write_bytes_per_s",
+        aggregate="total",
+        key="model.nfs_write_bytes_total",
+        pooling="sum_nodes",
+        fmt="bytes",
+    ),
+    HeadlineSpec(
+        scope="model",
+        source=SAMPLES_FILE,
+        column="disk_read_bytes_per_s",
+        aggregate="total",
+        key="model.disk_read_bytes_total",
+        pooling="sum_nodes",
+        fmt="bytes",
+    ),
+    HeadlineSpec(
+        scope="model",
+        source=SAMPLES_FILE,
+        column="disk_write_bytes_per_s",
+        aggregate="total",
+        key="model.disk_write_bytes_total",
+        pooling="sum_nodes",
+        fmt="bytes",
+    ),
+    HeadlineSpec(
+        scope="finalize",
+        source=SAMPLES_FILE,
+        column="job_mem_peak_bytes",
+        aggregate="max",
+        key="finalize.job_mem_peak_bytes_max",
+        pooling="node_rows",
+        fmt="bytes",
+    ),
+    HeadlineSpec(
+        scope="finalize",
+        source=SAMPLES_FILE,
+        column="mem_available_bytes",
+        aggregate="min",
+        key="finalize.mem_available_bytes_min",
+        pooling="node_rows",
+        fmt="bytes",
+    ),
+    HeadlineSpec(
+        scope="finalize",
+        source=SAMPLES_FILE,
+        column="cpu_busy_cores",
+        aggregate="mean",
+        key="finalize.cpu_busy_cores_mean",
+        pooling="node_rows",
+        fmt="cores",
+    ),
+    HeadlineSpec(
+        scope="finalize",
+        source=SAMPLES_FILE,
+        column="cpu_busy_cores",
+        aggregate="p95",
+        key="finalize.cpu_busy_cores_p95",
+        pooling="node_rows",
+        fmt="cores",
+    ),
+    HeadlineSpec(
+        scope="finalize",
+        source=SAMPLES_FILE,
+        column="cpu_util",
+        aggregate="mean",
+        key="finalize.cpu_util_mean",
+        pooling="node_rows",
+        fmt="fraction",
+    ),
+    HeadlineSpec(
+        scope="finalize",
+        source=SAMPLES_FILE,
+        column="nfs_read_bytes_per_s",
+        aggregate="total",
+        key="finalize.nfs_read_bytes_total",
+        pooling="sum_nodes",
+        fmt="bytes",
+    ),
+    HeadlineSpec(
+        scope="finalize",
+        source=SAMPLES_FILE,
+        column="nfs_write_bytes_per_s",
+        aggregate="total",
+        key="finalize.nfs_write_bytes_total",
+        pooling="sum_nodes",
+        fmt="bytes",
+    ),
+    HeadlineSpec(
+        scope="finalize",
+        source=SAMPLES_FILE,
+        column="disk_read_bytes_per_s",
+        aggregate="total",
+        key="finalize.disk_read_bytes_total",
+        pooling="sum_nodes",
+        fmt="bytes",
+    ),
+    HeadlineSpec(
+        scope="finalize",
+        source=SAMPLES_FILE,
+        column="disk_write_bytes_per_s",
+        aggregate="total",
+        key="finalize.disk_write_bytes_total",
+        pooling="sum_nodes",
+        fmt="bytes",
+    ),
+    HeadlineSpec(
+        scope="workspace",
+        source=WORKSPACE_FILE,
+        column="allocated_bytes",
+        aggregate="max",
+        key="workspace.allocated_bytes_max",
+        pooling="walks",
+        fmt="bytes",
+    ),
+)
+
+# ADR-071: summary.json holds at most WARNINGS_CAP warnings
+# {code, phase, job_id, restart, node_index, count, message}.
+# STAGING_LINE_LIMIT is the bytes of one staging line, its \n included.
+WARNINGS_CAP: Final = 500
+STAGING_LINE_LIMIT: Final = 65536
+
+
+@dataclass(frozen=True, slots=True)
+class WarningCode:
+    code: str
+    meaning: str
+
+
+WARNING_CODES: Final[tuple[WarningCode, ...]] = (
+    WarningCode(
+        code="bad_header",
+        meaning="the file has no valid header line, and the file is skipped",
+    ),
+    WarningCode(
+        code="truncated_tail",
+        meaning="the last line has no newline and is dropped",
+    ),
+    WarningCode(
+        code="bad_line",
+        meaning=(
+            "a line is not ASCII JSON within the line limit and is dropped"
+        ),
+    ),
+    WarningCode(
+        code="bad_record",
+        meaning=(
+            "a JSON line breaks the record rules of its kind and is dropped"
+        ),
+    ),
+    WarningCode(
+        code="identity_mismatch",
+        meaning=(
+            "a sample or walk names another attempt than its header and is "
+            "dropped"
+        ),
+    ),
+    WarningCode(
+        code="non_monotonic_ts",
+        meaning=(
+            "a sample or walk ts is not after the previous kept one and is "
+            "dropped"
+        ),
+    ),
+    WarningCode(
+        code="sampler_error",
+        meaning="an error line written by the sampler",
+    ),
+    WarningCode(
+        code="missing_node",
+        meaning="a node of an attempt has no valid staging file",
+    ),
+    WarningCode(
+        code="warnings_capped",
+        meaning=(
+            "the warning list reached WARNINGS_CAP, and the count holds the "
+            "warning occurrences left out of the list"
+        ),
+    ),
+)
+
 
 def staging_file_name(
     phase: str, job_id: str, restart: int, node_index: int
@@ -969,3 +1631,39 @@ def staging_file_name(
     if node_index < 0:
         raise ValueError(f"node_index must be >= 0: {node_index}")
     return f"{phase}-{job_id}-r{restart}-{node_index}.ndjson"
+
+
+def format_headline_value(fmt: str, value: int | float) -> str:
+    """ADR-077: the single producer of headline hook value strings.
+
+    The domain is a non-negative int or float, not a bool, whose float() is
+    finite; any other value raises ValueError. A result is plain decimal
+    digits, fixed-point with 2 decimals for cores and 4 for fraction: no
+    sign, no exponent, no space.
+    """
+    if isinstance(value, bool):
+        raise ValueError(f"value must not be a bool: {value!r}")
+    if fmt not in HEADLINE_FORMATS:
+        raise ValueError(
+            f"fmt must be one of {sorted(HEADLINE_FORMATS)}: {fmt!r}"
+        )
+    try:
+        as_float = float(value)
+    except OverflowError as err:
+        # Only an int reaches here. Its bit length names it without a
+        # decimal conversion, which is capped at 4300 digits.
+        raise ValueError(
+            "value must be within the float range: an int of "
+            f"{int(value).bit_length()} bits"
+        ) from err
+    if not math.isfinite(as_float):
+        raise ValueError(f"value must be finite: {value!r}")
+    if value < 0:
+        raise ValueError(f"value must be >= 0: {value!r}")
+    # -0.0 passes the check above; abs drops its sign bit.
+    magnitude = abs(value)
+    if fmt == "bytes":
+        return str(round(magnitude))
+    if fmt == "cores":
+        return f"{magnitude:.2f}"
+    return f"{magnitude:.4f}"

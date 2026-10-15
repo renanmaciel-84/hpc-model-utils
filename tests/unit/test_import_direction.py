@@ -50,6 +50,7 @@ TELEMETRY_TEST_ALLOWED_PREFIXES = (
     f"{PACKAGE_NAME}.infra.telemetry",
     "tests.support.telemetry_tree",
     "tests.unit.infra.telemetry",
+    "tests.support.telemetry_staging",
 )
 
 

@@ -23,6 +23,10 @@ import pytest
 
 from hpc_model_utils.core.diagnosis import RunStatus
 from hpc_model_utils.core.workspace import Phase
+from hpc_model_utils.infra.telemetry.schema import (
+    EXPORT_FILES,
+    HEADLINE_KEY_PREFIX,
+)
 from hpc_model_utils.platform.modelops import STATUS_HOOKS, HookMethod
 from tests.support.decks import (
     FIXTURES,
@@ -43,6 +47,11 @@ _README = GOLDENS / "README.md"
 _PROJECTIONS = GOLDENS / "projections.json"
 _METADATA_KEY = "saidas/metadata.modelops"
 _STATUS_KEY = "saidas/status.modelops"
+_RUN_JSON_KEY = "saidas/run.json"
+_TELEMETRY_PREFIX = "saidas/telemetry/"
+_TELEMETRY_KEYS: Final = tuple(
+    f"{_TELEMETRY_PREFIX}{name}" for name in EXPORT_FILES
+)
 _DECK_ARCHIVE_KEY = "entradas/deck_processado.zip"
 _ECO_DECK = "eco_deck.zip"
 
@@ -430,6 +439,70 @@ def test_publish_golden_run_given_status_projects_status_and_hooks(
         hook.method for hook in run.hooks if hook.method in status_hooks
     ]
     assert terminal == [STATUS_HOOKS[status]]
+
+
+# -- publish_golden_run's telemetry parameter -----------------------------
+#
+# v1.1.2 has no telemetry run, so the keys are pinned relative to the same
+# model's telemetry-off run, not through the goldens or INTENDED_DIFFERENCES.
+
+
+@pytest.mark.parametrize("model", _MODELS)
+def test_publish_golden_run_telemetry_keys_inserted_before_status_marker(
+    tmp_path: Path, model: ModelName
+) -> None:
+    off = _upload_keys(publish_golden_run(tmp_path / "off", model))
+    on = _upload_keys(
+        publish_golden_run(tmp_path / "on", model, telemetry=True)
+    )
+
+    index = off.index(_STATUS_KEY)
+    assert on == [*off[:index], *_TELEMETRY_KEYS, *off[index:]]
+    assert on[index - 1].startswith("sintese/")
+
+
+@pytest.mark.parametrize("model", _MODELS)
+def test_publish_golden_run_telemetry_manifest_lists_sorted_entries_with_sizes(
+    tmp_path: Path, model: ModelName
+) -> None:
+    run = publish_golden_run(tmp_path, model, telemetry=True)
+
+    artifacts = json.loads(_object(run, _RUN_JSON_KEY).decode("utf-8"))[
+        "artifacts"
+    ]
+    paths = [entry["path"] for entry in artifacts]
+    telemetry = [
+        index
+        for index, path in enumerate(paths)
+        if path.startswith(_TELEMETRY_PREFIX)
+    ]
+    assert [paths[index] for index in telemetry] == sorted(_TELEMETRY_KEYS)
+    assert telemetry == list(range(telemetry[0], telemetry[0] + len(telemetry)))
+    assert paths == sorted(paths)
+    sintese = [
+        index for index, path in enumerate(paths) if path.startswith("sintese/")
+    ]
+    assert sintese
+    assert paths.index(_STATUS_KEY) < telemetry[0] <= telemetry[-1] < sintese[0]
+    for index in telemetry:
+        assert artifacts[index]["bytes"] == len(_object(run, paths[index]))
+
+
+@pytest.mark.parametrize("model", _MODELS)
+def test_publish_golden_run_telemetry_absent_by_default(
+    tmp_path: Path, model: ModelName
+) -> None:
+    run = publish_golden_run(tmp_path, model)
+
+    assert run.hooks
+    assert not [
+        key for key in _upload_keys(run) if key.startswith(_TELEMETRY_PREFIX)
+    ]
+    assert not [
+        hook
+        for hook in run.hooks
+        if hook.args and hook.args[0].startswith(HEADLINE_KEY_PREFIX)
+    ]
 
 
 # -- AC4: README consistency ----------------------------------------------
