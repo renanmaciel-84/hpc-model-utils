@@ -35,6 +35,7 @@ from hpc_model_utils.infra.s3 import S3Uri
 from hpc_model_utils.infra.slurm import Slurm
 from hpc_model_utils.models.cobre import CobrePlugin
 from hpc_model_utils.platform.modelops import Reporter
+from tests.support.cli_shim import write_python_sibling
 from tests.support.cobre_case import (
     COBRE_EXECUTION_LINES,
     cobre_workspace,
@@ -121,6 +122,7 @@ def _write_cli_shim(dest_dir: Path) -> Path:
         encoding="utf-8",
     )
     shim.chmod(0o755)
+    write_python_sibling(dest_dir)
     return shim
 
 
@@ -315,6 +317,15 @@ def _expected_argv(ws: Workspace, threads: int) -> list[str]:
 
 def _model_script_lines(ws: Workspace) -> list[str]:
     return ws.job_script(Phase.MODEL).read_text(encoding="utf-8").splitlines()
+
+
+def test_cobre_shim_python_sibling_is_a_regular_file(tmp_path: Path) -> None:
+    shim = _write_cli_shim(tmp_path)
+
+    python_bin = Toolchain(Path("/m"), Path("/s"), shim).python_bin
+
+    assert python_bin.is_file()
+    assert not python_bin.is_symlink()
 
 
 @pytest.mark.timeout(60)

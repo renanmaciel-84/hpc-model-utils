@@ -8,8 +8,9 @@ the sum is, through `max(w, 0)`.
 
 The `job_*` values subtract the sampler's own step from the job cgroup
 (ADR-063), clamped at 0; the clamp is part of the meaning. The peak and the
-pid count are never subtracted. A rate is null on a missing baseline, a
-negative delta or `dt_s <= 0`.
+pid count are never subtracted. The pid count is null, with no error line,
+when the job cgroup has no `pids.current` (the controller is not enabled).
+A rate is null on a missing baseline, a negative delta or `dt_s <= 0`.
 
 The disk, interface and EFA rates sum over the devices present in both reads
 and are null on an empty set. `disk_busy_max` is clamped to [0, 1], because
@@ -175,7 +176,7 @@ class JobCgroup(NamedTuple):
     file: int
     shmem: int
     oom_kill: int
-    pids: int
+    pids: int | None
 
 
 class StepCgroup(NamedTuple):
@@ -447,8 +448,16 @@ def _read_job(directory: Path) -> JobCgroup:
         oom_kill=parse_flat_keyed(read_text(directory, "memory.events"))[
             "oom_kill"
         ],
-        pids=parse_single_int(read_text(directory, "pids.current")),
+        pids=_read_pids(directory),
     )
+
+
+def _read_pids(directory: Path) -> int | None:
+    try:
+        text = read_text(directory, "pids.current")
+    except FileNotFoundError:
+        return None
+    return parse_single_int(text)
 
 
 def _read_step(directory: Path) -> StepCgroup:

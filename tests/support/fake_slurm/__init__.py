@@ -5,7 +5,8 @@ job scripts as detached bash processes, so system tests can drive
 production code through the existing `--slurm-path`/PATH seams. The
 controller also exposes `force`, `lag_sacct`, `disable_accounting`,
 `purge` and `configuring` (ticket-023) for deterministic accounting
-scenarios.
+scenarios, and `fail_step_start` (ticket-032) to make every `srun
+--ntasks` step fail to start.
 
 Per the 2026-10-01 operator amendment, `squeue` lists a job in every
 state until it is purged; `purge()` is the only operation that removes
@@ -21,6 +22,7 @@ from pathlib import Path
 from typing import Any
 
 from tests.support.fake_slurm.shim import (
+    FAIL_STEP_START_FLAG,
     TERMINAL_STATES,
     list_job_ids,
     purge_job,
@@ -164,3 +166,6 @@ class FakeSlurm:
             job_id,
             lambda j: {**j, "configuring_seconds": seconds},
         )
+
+    def fail_step_start(self) -> None:
+        (self.state_dir / FAIL_STEP_START_FLAG).touch()

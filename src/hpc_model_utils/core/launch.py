@@ -9,6 +9,7 @@ from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, field
 from pathlib import Path
 from string import Template
+from typing import Final
 
 from hpc_model_utils.core.errors import UsageError
 from hpc_model_utils.core.workspace import Phase, Workspace
@@ -26,10 +27,12 @@ _FINALIZE_GUARDS = (
     "OPENBLAS_NUM_THREADS=1 MKL_NUM_THREADS=1 NUMEXPR_NUM_THREADS=1"
 )
 
+_SAMPLER_MODULE: Final = "hpc_model_utils.infra.telemetry.sampler"
+
 _BODY_TEMPLATE = Template(
     "$prelude\n"
     "rm -f $exit_path\n"
-    "$libpath$env$launch\n"
+    "$sidecar$libpath$env$launch\n"
     "rc=$$?\n"
     "printf '%s\\n' \"$$rc\" > $exit_path\n"
     'exit "$$rc"\n'
@@ -110,6 +113,24 @@ class Toolchain:
     @property
     def python_bin(self) -> Path:
         return self.cli_bin.parent / "python"
+
+
+@dataclass(frozen=True, slots=True)
+class TelemetryConfig:
+    """ADR-082: the launch-side telemetry configuration. The renderers
+    turn these values into the explicit sidecar arguments (R82), so the
+    job side never reads ``HPCMU_TELEMETRY*`` itself. Ranges are
+    validated once, in ``EngineSettings.from_env`` (R92)."""
+
+    enabled: bool
+    interval: int
+    workspace_interval: int
+    tool_version: str
+
+
+TELEMETRY_OFF: Final = TelemetryConfig(
+    enabled=False, interval=5, workspace_interval=60, tool_version=""
+)
 
 
 def format_time_limit(hours: int) -> str:
@@ -204,8 +225,75 @@ def _render_launch_line(spec: LaunchSpec) -> str:
     )
 
 
+def _render_sidecar_line(
+    ws: Workspace, tools: Toolchain, telemetry: TelemetryConfig, phase: Phase
+) -> str:
+    """ADR-060/ADR-062: the one ``srun --overlap`` line that starts the
+    sampler on every node of the job, rendered after the prelude and the
+    exit-file removal and before the launch (R41).
+
+    ADR-061: the line ends in ``& disown`` and the body has no stop
+    block; Slurm's job-end teardown TERMs the sampler tasks. Task output
+    goes to per-attempt task logs and the srun client's own output to
+    ``<phase>-<jobid>-r<restart>-srun.log`` (R79), so no sidecar failure
+    reaches the relayed job log. The cadences and the tool version are
+    explicit sampler arguments (R82).
+
+    ``--wait=0`` is pinned so that one node's sampler exiting can never
+    let the srun client kill the samplers of the other nodes, whatever
+    ``WaitTime`` a future ``slurm.conf`` sets. Every Slurm variable is a
+    defaulted expansion, so ``set -u`` cannot abort the batch script.
+    """
+    tel = shlex.quote(str(ws.telemetry_dir))
+    name = phase.value
+    nodes = '"${SLURM_JOB_NUM_NODES:-?}"'
+    restart = '"${SLURM_RESTART_COUNT:-0}"'
+    parts = [
+        "srun",
+        "--overlap",
+        f"--nodes={nodes}",
+        f"--ntasks={nodes}",
+        "--ntasks-per-node=1",
+        "--cpus-per-task=1",
+        "--cpu-bind=none",
+        "--mpi=none",
+        "--kill-on-bad-exit=0",
+        "--input=none",
+        "--wait=0",
+        "--job-name=hpcmu-telemetry",
+        f"--output={tel}/{name}-%j-r{restart}-%t.log",
+        shlex.quote(str(tools.python_bin)),
+        "-I",
+        "-m",
+        _SAMPLER_MODULE,
+        "--staging",
+        tel,
+        "--phase",
+        name,
+        "--workspace",
+        shlex.quote(str(ws.root)),
+        "--interval",
+        str(telemetry.interval),
+        "--workspace-interval",
+        str(telemetry.workspace_interval),
+        "--tool-version",
+        shlex.quote(telemetry.tool_version),
+        ">",
+        f'{tel}/{name}-"${{SLURM_JOB_ID:-?}}"-r{restart}-srun.log',
+        "2>&1",
+        "&",
+        "disown",
+    ]
+    return " ".join(parts)
+
+
 def render_model_script(
-    ws: Workspace, spec: LaunchSpec, res: Resources, tools: Toolchain
+    ws: Workspace,
+    spec: LaunchSpec,
+    res: Resources,
+    tools: Toolchain,
+    *,
+    telemetry: TelemetryConfig = TELEMETRY_OFF,
 ) -> str:
     _check_root_characters(ws)
     sbatch_pairs: list[tuple[str, str | None]] = [
@@ -232,6 +320,11 @@ def render_model_script(
     body = _BODY_TEMPLATE.substitute(
         prelude=render_prelude(tools),
         exit_path=shlex.quote(str(ws.model_exit_path)),
+        sidecar=(
+            _render_sidecar_line(ws, tools, telemetry, Phase.MODEL) + "\n"
+            if telemetry.enabled
+            else ""
+        ),
         libpath=_render_libpath_seam(tools) if spec.prepend_mpich_lib else "",
         env=_render_env_exports(spec.env),
         launch=_render_launch_line(spec),
@@ -240,11 +333,19 @@ def render_model_script(
 
 
 def write_model_script(
-    ws: Workspace, spec: LaunchSpec, res: Resources, tools: Toolchain
+    ws: Workspace,
+    spec: LaunchSpec,
+    res: Resources,
+    tools: Toolchain,
+    *,
+    telemetry: TelemetryConfig = TELEMETRY_OFF,
 ) -> Path:
     ws.ensure_layout()
     path = ws.job_script(Phase.MODEL)
-    path.write_text(render_model_script(ws, spec, res, tools), encoding="utf-8")
+    path.write_text(
+        render_model_script(ws, spec, res, tools, telemetry=telemetry),
+        encoding="utf-8",
+    )
     path.chmod(0o755)
     return path
 
@@ -299,8 +400,17 @@ def _render_finalize_exec_line(cli_bin: Path, inv: FinalizeInvocation) -> str:
 
 
 def render_finalize_script(
-    ws: Workspace, res: Resources, tools: Toolchain, inv: FinalizeInvocation
+    ws: Workspace,
+    res: Resources,
+    tools: Toolchain,
+    inv: FinalizeInvocation,
+    *,
+    telemetry: TelemetryConfig = TELEMETRY_OFF,
 ) -> str:
+    """The sidecar sits after the guards, so their ``ulimit -u`` raise
+    covers it, and right before ``exec`` (R41). The disowned srun client
+    survives ``exec`` in the batch step's cgroup until job-end teardown
+    (ADR-061), and the CLI's exit code stays the script's."""
     _check_root_characters(ws)
     sbatch_pairs: list[tuple[str, str | None]] = [
         ("--job-name", _job_name(ws)),
@@ -319,21 +429,32 @@ def render_finalize_script(
         ("--output", str(ws.log_pattern(Phase.FINALIZE))),
     ]
     sbatch_block = "\n".join(_render_sbatch_lines(sbatch_pairs))
+    sidecar = (
+        _render_sidecar_line(ws, tools, telemetry, Phase.FINALIZE) + "\n"
+        if telemetry.enabled
+        else ""
+    )
     body = (
         f"{render_prelude(tools)}\n"
         f"{_FINALIZE_GUARDS}\n"
-        f"{_render_finalize_exec_line(tools.cli_bin, inv)}\n"
+        f"{sidecar}{_render_finalize_exec_line(tools.cli_bin, inv)}\n"
     )
     return f"{sbatch_block}\n{body}"
 
 
 def write_finalize_script(
-    ws: Workspace, res: Resources, tools: Toolchain, inv: FinalizeInvocation
+    ws: Workspace,
+    res: Resources,
+    tools: Toolchain,
+    inv: FinalizeInvocation,
+    *,
+    telemetry: TelemetryConfig = TELEMETRY_OFF,
 ) -> Path:
     ws.ensure_layout()
     path = ws.job_script(Phase.FINALIZE)
     path.write_text(
-        render_finalize_script(ws, res, tools, inv), encoding="utf-8"
+        render_finalize_script(ws, res, tools, inv, telemetry=telemetry),
+        encoding="utf-8",
     )
     path.chmod(0o755)
     return path

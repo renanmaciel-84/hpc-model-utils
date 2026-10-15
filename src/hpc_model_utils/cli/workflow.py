@@ -1,4 +1,4 @@
-"""ADR-004/ADR-005/ADR-006/ADR-020/ADR-024/R10/R11/R44/R69/R91/R101:
+"""ADR-004/ADR-005/ADR-006/ADR-020/ADR-024/ADR-082/R10/R11/R44/R69/R91/R101:
 the C1 workflow commands -- thin click wrappers over the lifecycle
 steps (ticket-053). No command body catches anything: a lifecycle
 failure propagates to ``cli.root.main``'s single fatal-path
@@ -18,7 +18,7 @@ import click
 from hpc_model_utils.cli.params import ModelArg
 from hpc_model_utils.cli.root import AppContext, HpcmuCommand, cli
 from hpc_model_utils.core.errors import UsageError
-from hpc_model_utils.core.launch import Resources, Toolchain
+from hpc_model_utils.core.launch import Resources, TelemetryConfig, Toolchain
 from hpc_model_utils.core.lifecycle.cancel import cancel
 from hpc_model_utils.core.lifecycle.fetch import fetch_executables, fetch_inputs
 from hpc_model_utils.core.lifecycle.ingest import ingest_offline_run
@@ -30,7 +30,7 @@ from hpc_model_utils.core.lifecycle.publish import publish
 from hpc_model_utils.core.lifecycle.run import JobLedger, SubmitRequest, run
 from hpc_model_utils.core.plugin import ModelPlugin
 from hpc_model_utils.core.settings import EngineSettings
-from hpc_model_utils.core.state import StateStore
+from hpc_model_utils.core.state import StateStore, current_tool
 from hpc_model_utils.core.workspace import Workspace
 from hpc_model_utils.infra.s3 import Boto3ObjectStore, ObjectStore
 from hpc_model_utils.infra.slurm import Slurm
@@ -53,6 +53,15 @@ def resolve_cli_bin(settings: EngineSettings) -> Path:
             "the interpreter; set HPCMU_CLI_BIN"
         )
     return candidate
+
+
+def telemetry_config(settings: EngineSettings) -> TelemetryConfig:
+    return TelemetryConfig(
+        settings.telemetry,
+        settings.telemetry_interval,
+        settings.telemetry_workspace_interval,
+        current_tool().version,
+    )
 
 
 @cli.command("check_and_fetch_executables", cls=HpcmuCommand)
@@ -160,6 +169,7 @@ def run_command(
             ),
             skip,
             synthesis_bin,
+            telemetry=telemetry_config(app_ctx.settings),
         ),
         JobLedger(),
         settings=app_ctx.settings,

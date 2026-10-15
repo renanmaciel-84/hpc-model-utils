@@ -4,8 +4,10 @@ from __future__ import annotations
 
 import os
 import re
+import shlex
 import subprocess
 import sys
+import time
 from pathlib import Path
 
 import pytest
@@ -15,6 +17,7 @@ from hpc_model_utils.core.launch import (
     Launcher,
     LaunchSpec,
     Resources,
+    TelemetryConfig,
     Toolchain,
     format_time_limit,
     render_model_script,
@@ -33,6 +36,34 @@ _GOLDEN_PATH = (
     / "model_mpiexec.sbatch"
 )
 _SRUN_PMIX_GOLDEN_PATH = _GOLDEN_PATH.with_name("model_srun_pmix.sbatch")
+_ON_GOLDEN_PATH = _GOLDEN_PATH.with_name("model_mpiexec-telemetry.sbatch")
+_SRUN_PMIX_ON_GOLDEN_PATH = _GOLDEN_PATH.with_name(
+    "model_srun_pmix-telemetry.sbatch"
+)
+_GOLDEN_TOOLS = Toolchain(
+    mpich_bin=Path("/opt/mpich/bin"),
+    slurm_bin=Path("/opt/slurm/bin"),
+    cli_bin=Path("/opt/hpcmu/bin"),
+)
+_TELEMETRY_ON = TelemetryConfig(
+    enabled=True, interval=5, workspace_interval=60, tool_version="9.9.9"
+)
+_RM_EXIT_GOLDEN_LINE = "rm -f <WS>/.hpcmu/jobs/model.exit"
+_SIDECAR_GOLDEN_LINE = (
+    'srun --overlap --nodes="${SLURM_JOB_NUM_NODES:-?}" '
+    '--ntasks="${SLURM_JOB_NUM_NODES:-?}" --ntasks-per-node=1 '
+    "--cpus-per-task=1 --cpu-bind=none --mpi=none --kill-on-bad-exit=0 "
+    "--input=none --wait=0 --job-name=hpcmu-telemetry "
+    "--output=<WS>/.hpcmu/telemetry/model-%j-r"
+    '"${SLURM_RESTART_COUNT:-0}"-%t.log /opt/hpcmu/python -I -m '
+    "hpc_model_utils.infra.telemetry.sampler --staging "
+    "<WS>/.hpcmu/telemetry --phase model --workspace <WS> --interval 5 "
+    "--workspace-interval 60 --tool-version 9.9.9 > "
+    '<WS>/.hpcmu/telemetry/model-"${SLURM_JOB_ID:-?}"-r'
+    '"${SLURM_RESTART_COUNT:-0}"-srun.log 2>&1 & disown'
+)
+_SIDECAR_LOG_TIMEOUT_S = 5
+_SIDECAR_LOG_POLL_S = 0.05
 
 
 def _write_stub(bin_dir: Path, name: str, body: str) -> Path:
@@ -41,6 +72,47 @@ def _write_stub(bin_dir: Path, name: str, body: str) -> Path:
     stub.write_text(f"#!/bin/bash\n{body}\n", encoding="utf-8")
     stub.chmod(0o755)
     return stub
+
+
+def _assert_matches_golden(
+    rendered: str, ws: Workspace, golden_path: Path, tmp_path: Path
+) -> None:
+    normalized = rendered.replace(str(ws.root), "<WS>")
+    if os.environ.get(_REGEN_ENV) == "1":
+        golden_path.parent.mkdir(parents=True, exist_ok=True)
+        golden_path.write_text(normalized, encoding="utf-8")
+        pytest.fail(
+            f"{_REGEN_ENV}=1: regenerated {golden_path}; "
+            "re-run without it to verify"
+        )
+
+    assert normalized == golden_path.read_text(encoding="utf-8")
+
+    script_path = tmp_path / "golden-check.sbatch"
+    script_path.write_text(rendered, encoding="utf-8")
+    subprocess.run(["bash", "-n", str(script_path)], check=True)
+
+
+def _assert_sidecar_after_rm_exit(on_golden: Path, off_golden: Path) -> None:
+    off_lines = off_golden.read_text(encoding="utf-8").split("\n")
+    on_lines = on_golden.read_text(encoding="utf-8").split("\n")
+    rm_index = off_lines.index(_RM_EXIT_GOLDEN_LINE)
+    assert on_lines[rm_index + 1] == _SIDECAR_GOLDEN_LINE
+    assert on_lines[: rm_index + 1] + on_lines[rm_index + 2 :] == off_lines
+
+
+def _await_text(path: Path, needle: str) -> str:
+    deadline = time.monotonic() + _SIDECAR_LOG_TIMEOUT_S
+    while True:
+        text = path.read_text(encoding="utf-8") if path.exists() else ""
+        if needle in text:
+            return text
+        if time.monotonic() >= deadline:
+            pytest.fail(
+                f"{needle!r} not in {path} within "
+                f"{_SIDECAR_LOG_TIMEOUT_S} s: {text!r}"
+            )
+        time.sleep(_SIDECAR_LOG_POLL_S)
 
 
 # -- format_time_limit -------------------------------------------------
@@ -396,7 +468,7 @@ def test_render_model_script_optional_sbatch_flags_omitted_when_none(
         LaunchSpec(launcher=Launcher.SRUN_PMIX, argv=("/bin/true",), nodes=1),
     ],
 )
-def test_render_model_script_exclusive_present_for_every_launcher(
+def test_render_model_script_exclusive_present_for_each_launcher(
     tmp_path: Path, spec: LaunchSpec
 ) -> None:
     ws = Workspace.at(tmp_path)
@@ -507,17 +579,12 @@ def test_write_model_script_creates_executable_file(tmp_path: Path) -> None:
 # -- AC2: the regenerable NEWAVE-shaped golden -------------------------------
 
 
-def test_render_model_script_mpiexec_hydra_matches_golden(
+def _newave_golden_case(
     tmp_path: Path,
-) -> None:
+) -> tuple[Workspace, LaunchSpec, Resources]:
     root = tmp_path / "study-newave"
     root.mkdir()
     ws = Workspace.at(root)
-    tools = Toolchain(
-        mpich_bin=Path("/opt/mpich/bin"),
-        slurm_bin=Path("/opt/slurm/bin"),
-        cli_bin=Path("/opt/hpcmu/bin"),
-    )
     spec = LaunchSpec(
         launcher=Launcher.MPIEXEC_HYDRA,
         argv=(str(ws.root / "assets" / "newave"),),
@@ -526,38 +593,15 @@ def test_render_model_script_mpiexec_hydra_matches_golden(
         cpus_per_task=2,
     )
     res = Resources(queue="batch", cores=64, time_limit_hours=24)
-    rendered = render_model_script(ws, spec, res, tools)
-    normalized = rendered.replace(str(ws.root), "<WS>")
-
-    if os.environ.get(_REGEN_ENV) == "1":
-        _GOLDEN_PATH.parent.mkdir(parents=True, exist_ok=True)
-        _GOLDEN_PATH.write_text(normalized, encoding="utf-8")
-        pytest.fail(
-            f"{_REGEN_ENV}=1: regenerated {_GOLDEN_PATH}; "
-            "re-run without it to verify"
-        )
-
-    expected = _GOLDEN_PATH.read_text(encoding="utf-8")
-    assert normalized == expected
-    assert "#SBATCH --exclusive" in rendered
-    assert "LD_LIBRARY_PATH" not in rendered
-
-    script_path = tmp_path / "golden-check.sbatch"
-    script_path.write_text(rendered, encoding="utf-8")
-    subprocess.run(["bash", "-n", str(script_path)], check=True)
+    return ws, spec, res
 
 
-def test_render_model_script_srun_pmix_matches_golden(
+def _cobre_golden_case(
     tmp_path: Path,
-) -> None:
+) -> tuple[Workspace, LaunchSpec, Resources]:
     root = tmp_path / "study-cobre"
     root.mkdir()
     ws = Workspace.at(root)
-    tools = Toolchain(
-        mpich_bin=Path("/opt/mpich/bin"),
-        slurm_bin=Path("/opt/slurm/bin"),
-        cli_bin=Path("/opt/hpcmu/bin"),
-    )
     spec = LaunchSpec(
         launcher=Launcher.SRUN_PMIX,
         argv=(
@@ -578,26 +622,145 @@ def test_render_model_script_srun_pmix_matches_golden(
     res = Resources(
         queue="batch", cores=384, max_cores_per_node=96, time_limit_hours=24
     )
-    rendered = render_model_script(ws, spec, res, tools)
-    normalized = rendered.replace(str(ws.root), "<WS>")
+    return ws, spec, res
 
-    if os.environ.get(_REGEN_ENV) == "1":
-        _SRUN_PMIX_GOLDEN_PATH.parent.mkdir(parents=True, exist_ok=True)
-        _SRUN_PMIX_GOLDEN_PATH.write_text(normalized, encoding="utf-8")
-        pytest.fail(
-            f"{_REGEN_ENV}=1: regenerated {_SRUN_PMIX_GOLDEN_PATH}; "
-            "re-run without it to verify"
-        )
 
-    expected = _SRUN_PMIX_GOLDEN_PATH.read_text(encoding="utf-8")
-    assert normalized == expected
+def test_render_model_script_mpiexec_hydra_matches_golden(
+    tmp_path: Path,
+) -> None:
+    ws, spec, res = _newave_golden_case(tmp_path)
+    rendered = render_model_script(ws, spec, res, _GOLDEN_TOOLS)
+
+    _assert_matches_golden(rendered, ws, _GOLDEN_PATH, tmp_path)
+    assert "#SBATCH --exclusive" in rendered
+    assert "LD_LIBRARY_PATH" not in rendered
+
+
+def test_render_model_script_srun_pmix_matches_golden(
+    tmp_path: Path,
+) -> None:
+    ws, spec, res = _cobre_golden_case(tmp_path)
+    rendered = render_model_script(ws, spec, res, _GOLDEN_TOOLS)
+
+    _assert_matches_golden(rendered, ws, _SRUN_PMIX_GOLDEN_PATH, tmp_path)
     assert "srun --mpi=pmix --ntasks-per-node=1" in rendered
     assert "export FI_PROVIDER=efa" in rendered
     assert "export LD_LIBRARY_PATH=" in rendered
 
-    script_path = tmp_path / "golden-check.sbatch"
-    script_path.write_text(rendered, encoding="utf-8")
-    subprocess.run(["bash", "-n", str(script_path)], check=True)
+
+# -- ticket-034: the telemetry-on goldens (ADR-095, R64) --------------------
+
+
+def test_render_model_script_mpiexec_hydra_telemetry_matches_golden(
+    tmp_path: Path,
+) -> None:
+    ws, spec, res = _newave_golden_case(tmp_path)
+    rendered = render_model_script(
+        ws, spec, res, _GOLDEN_TOOLS, telemetry=_TELEMETRY_ON
+    )
+
+    _assert_matches_golden(rendered, ws, _ON_GOLDEN_PATH, tmp_path)
+    _assert_sidecar_after_rm_exit(_ON_GOLDEN_PATH, _GOLDEN_PATH)
+
+
+def test_render_model_script_srun_pmix_telemetry_matches_golden(
+    tmp_path: Path,
+) -> None:
+    ws, spec, res = _cobre_golden_case(tmp_path)
+    rendered = render_model_script(
+        ws, spec, res, _GOLDEN_TOOLS, telemetry=_TELEMETRY_ON
+    )
+
+    _assert_matches_golden(rendered, ws, _SRUN_PMIX_ON_GOLDEN_PATH, tmp_path)
+    _assert_sidecar_after_rm_exit(
+        _SRUN_PMIX_ON_GOLDEN_PATH, _SRUN_PMIX_GOLDEN_PATH
+    )
+
+
+# -- ticket-034: the sidecar seam for every Launcher (R41, ADR-095) ---------
+
+
+@pytest.mark.parametrize("launcher", list(Launcher))
+def test_render_model_script_sidecar_every_launcher_inserts_one_line(
+    tmp_path: Path, launcher: Launcher
+) -> None:
+    ws = Workspace.at(tmp_path)
+    tools = toolchain(tmp_path)
+    spec = LaunchSpec(
+        launcher=launcher,
+        argv=("/bin/true",),
+        ntasks=4 if launcher is Launcher.MPIEXEC_HYDRA else None,
+        nodes=2 if launcher is Launcher.SRUN_PMIX else None,
+        prepend_mpich_lib=True,
+        env={"FI_PROVIDER": "efa"},
+    )
+    res = Resources(queue="batch", cores=4)
+    off = render_model_script(ws, spec, res, tools)
+    on = render_model_script(ws, spec, res, tools, telemetry=_TELEMETRY_ON)
+    disabled = render_model_script(
+        ws, spec, res, tools, telemetry=TelemetryConfig(False, 30, 3600, "x")
+    )
+
+    assert disabled == off
+    off_lines = off.split("\n")
+    on_lines = on.split("\n")
+    libpath_index = next(
+        index
+        for index, line in enumerate(off_lines)
+        if line.startswith("export LD_LIBRARY_PATH=")
+    )
+    inserted = on_lines[libpath_index]
+    assert inserted.startswith("srun --overlap ")
+    assert inserted.endswith(" & disown")
+    assert on_lines[:libpath_index] + on_lines[libpath_index + 1 :] == off_lines
+
+
+# -- ticket-034: the sidecar line run under set -u, Slurm variables unset ---
+
+
+def test_write_model_script_sidecar_with_slurm_unset_keeps_rc_and_job_log(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    for name in [key for key in os.environ if key.startswith("SLURM_")]:
+        monkeypatch.delenv(name, raising=False)
+    ws = Workspace.at(tmp_path)
+    tools = toolchain(tmp_path)
+    argv_path = tmp_path / "srun-argv.txt"
+    _write_stub(
+        tools.slurm_bin,
+        "srun",
+        f"printf '%s\\n' \"$@\" > {shlex.quote(str(argv_path))}\n"
+        "echo 'stub-srun noise' >&2\n"
+        "exit 0",
+    )
+    stub = _write_stub(tmp_path / "bin", "model_stub", "exit 7")
+    spec = LaunchSpec(launcher=Launcher.DIRECT, argv=(str(stub),))
+    res = Resources(queue="batch", cores=1)
+    script = write_model_script(ws, spec, res, tools, telemetry=_TELEMETRY_ON)
+
+    result = run_script(script, tmp_path, {})
+
+    assert result.returncode == 7
+    assert ws.model_exit_path.read_text(encoding="utf-8") == "7\n"
+    stdout_lines = result.stdout.splitlines()
+    assert len(stdout_lines) == 2
+    assert stdout_lines[0].startswith("HPCMU_START job=? restart=0 at=")
+    assert stdout_lines[1].startswith("HPCMU_SHAPE nodes=? ")
+    assert result.stderr == ""
+    _await_text(ws.telemetry_dir / "model-?-r0-srun.log", "stub-srun noise")
+    recorded = argv_path.read_text(encoding="utf-8").splitlines()
+    for item in (
+        "--nodes=?",
+        "--ntasks=?",
+        "--wait=0",
+        "--phase",
+        "model",
+        "--tool-version",
+        "9.9.9",
+    ):
+        assert item in recorded
+    assert recorded[recorded.index("--phase") + 1] == "model"
+    assert recorded[recorded.index("--tool-version") + 1] == "9.9.9"
 
 
 # -- AC3: library-path seam executed under bash with a stub srun -----------

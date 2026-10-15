@@ -34,11 +34,17 @@ Each snapshot holds:
 | Bundle | Source | Captured | Kernel | How |
 | --- | --- | --- | --- | --- |
 | `workstation.json` | a developer workstation | 2026-10-14 | `7.0.0-31-generic` | `capture-fixtures.sh --local <out>`, then `bundle-fixtures.py --source workstation --hostname "$(hostname)" --mount-path <path> <out>/node-0 <bundle>` |
+| `prd.json` | `ticket-004 capture job, node 0, c7a.48xlarge` | 2026-10-15 | `6.8.0-1024-aws` | `capture-fixtures.sh` in the ticket-004 capture job, then `bundle-fixtures.py --source prd --job-id <id> --job-id <id> --job-id <id> <capture>/node-0 <bundle>` |
 
-The kernel is the bundle's own `proc/sys/kernel/osrelease`. This host has no
-EFA device, so those files are absent here and the synthetic bundle covers
-them. `proc/self/cgroup` has no `step_*` component, which is the expected
-case of a process outside a Slurm step.
+The kernel is the bundle's own `proc/sys/kernel/osrelease`. The workstation
+has no EFA device, so those files are absent from its bundle and the synthetic
+bundle covers them. Its `proc/self/cgroup` has no `step_*` component, which is
+the expected case of a process outside a Slurm step.
+
+The prd snapshots are about 5.3 s apart, against the 5 s nominal gap of the
+format. The job cgroup has no `pids.current` and no `io.stat` (T3), so
+`job_pids` is null on prd. `proc/self/cgroup` ends in
+`step_1/user/task_special`.
 
 ## Sanitization
 

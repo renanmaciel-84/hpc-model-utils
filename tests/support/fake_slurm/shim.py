@@ -15,6 +15,27 @@ is killed directly instead, since it emulates an externally-triggered
 termination rather than a user `scancel`. This module imports nothing
 from the production package: it must stay independent of the code
 under test.
+
+`srun` has two paths (ticket-031, ADR-087, R88). Without `--ntasks` it
+`exec`s the command once, as before. With `--ntasks N` it is a step: it
+launches N background tasks, one per fake node, each leading its own
+session with `SLURMD_NODENAME`/`SLURM_NODEID`/`SLURM_PROCID`/
+`SLURM_NNODES` set, expands `%j`/`%t` in `--output` (opened for append),
+records the task pids, step id and output path under the job's
+`step_tasks`, and waits in the foreground for all of them. The tasks sit
+outside the batch script's process group, so the runner's `_teardown`
+ends them (ticket-032, ADR-087, R88) once the batch script exits, is
+cancelled or times out: SIGCONT then SIGTERM, one `slurmstepd: ... CANCELLED
+AT ...` line appended to task 0's output, SIGKILL after `_KILL_WAIT`.
+The step's srun client turns SIGTERM into a KILL of the step (the four
+`srun:` lines, rc 137) and forwards SIGINT to the tasks. The
+`fail-step-start` flag file makes every `--ntasks` step fail to start.
+
+`scontrol requeue <id>` (job-telemetry ticket-039, ADR-069) re-runs a
+finished job: it clears the run's pids, times and steps, bumps the job's
+`restart_count` (the `SLURM_RESTART_COUNT` of its next attempt) and
+spawns a new runner. Real Slurm also requeues a running job; the fake
+refuses it.
 """
 
 from __future__ import annotations
@@ -31,7 +52,8 @@ import tempfile
 import time
 from collections.abc import Callable, Iterator
 from pathlib import Path
-from typing import Any
+from types import FrameType
+from typing import Any, TypedDict
 
 _REPO_ROOT = Path(__file__).resolve().parents[3]
 
@@ -49,6 +71,8 @@ TERMINAL_STATES = frozenset(
 _KILL_WAIT = 2.0
 _POLL_INTERVAL = 0.05
 
+FAIL_STEP_START_FLAG = "fail-step-start"
+
 _SHORT_STATE = {
     "PENDING": "PD",
     "RUNNING": "R",
@@ -56,6 +80,15 @@ _SHORT_STATE = {
     "FAILED": "F",
     "CANCELLED": "CA",
 }
+
+_SRUN_FLAGS = frozenset({"--overlap"})
+
+
+class StepTask(TypedDict):
+    pid: int
+    task: int
+    step: int
+    output: str | None
 
 
 # --- state primitives, shared with the controller
@@ -285,6 +318,8 @@ def _sbatch(args: list[str], state_dir: Path) -> int:
         "runner_pid": None,
         "configuring_seconds": 0.0,
         "steps": [],
+        "step_tasks": [],
+        "restart_count": 0,
     }
     spawn = True
     if (
@@ -345,7 +380,7 @@ def _build_env(
     env["SLURM_CPUS_PER_TASK"] = cpus
     env["SLURM_JOB_NUM_NODES"] = str(directives.get("nodes", "1"))
     env["SLURM_CPUS_ON_NODE"] = cpus
-    env["SLURM_RESTART_COUNT"] = "0"
+    env["SLURM_RESTART_COUNT"] = str(job["restart_count"])
     env["SLURM_SUBMIT_DIR"] = str(job["submit_dir"])
     env["PATH"] = f"{bin_dir}{os.pathsep}{env.get('PATH', '')}"
     return env
@@ -404,7 +439,7 @@ def _wait_for_exit(
             if cancelled_at is None:
                 cancelled_at = time.time()
             elif time.time() - cancelled_at >= _KILL_WAIT:
-                with contextlib.suppress(ProcessLookupError):
+                with locked(state_dir), contextlib.suppress(ProcessLookupError):
                     os.killpg(pgid, signal.SIGKILL)
         elif (
             force is not None
@@ -412,9 +447,67 @@ def _wait_for_exit(
             and force["state"] in _KILLING_STATES
             and time.time() - start >= force["after"]
         ):
-            with contextlib.suppress(ProcessLookupError):
+            with locked(state_dir), contextlib.suppress(ProcessLookupError):
                 os.killpg(pgid, signal.SIGKILL)
             forced_killed = True
+        time.sleep(_POLL_INTERVAL)
+
+
+def _alive(pid: int) -> bool:
+    try:
+        stat = Path(f"/proc/{pid}/stat").read_text()
+    except (FileNotFoundError, ProcessLookupError):
+        return False
+    return stat.rsplit(")", 1)[1].split()[0] != "Z"
+
+
+def _append_cancelled_line(path: str, job_id: int, step: int) -> None:
+    stamp = time.strftime("%Y-%m-%dT%H:%M:%S")
+    with Path(path).open("a") as out:
+        out.write(
+            f"slurmstepd: error: *** STEP {job_id}.{step} ON fake-node0"
+            f" CANCELLED AT {stamp} ***\n"
+        )
+
+
+def _teardown(state_dir: Path, job_id: int, pgid: int, cancelled: bool) -> None:
+    """Slurm's job-end step cleanup (ADR-087, T8b): batch leftovers get
+    SIGKILL with no TERM, step tasks still alive get SIGCONT then SIGTERM,
+    task 0's output gets one CANCELLED line per step, and survivors are
+    SIGKILLed after `_KILL_WAIT`. Runs before `_finalize`, prints nothing."""
+    if cancelled:
+        deadline = time.time() + _KILL_WAIT
+        while time.time() < deadline:
+            try:
+                os.killpg(pgid, 0)
+            except ProcessLookupError:
+                break
+            time.sleep(_POLL_INTERVAL)
+    with locked(state_dir), contextlib.suppress(ProcessLookupError):
+        os.killpg(pgid, signal.SIGKILL)
+    tasks: list[StepTask] = read_job(state_dir, job_id)["step_tasks"]
+    live = [t for t in tasks if _alive(t["pid"])]
+    for t in live:
+        with contextlib.suppress(ProcessLookupError):
+            os.killpg(t["pid"], signal.SIGCONT)
+            os.killpg(t["pid"], signal.SIGTERM)
+    for step in sorted({t["step"] for t in live}):
+        [output] = [
+            t["output"] for t in tasks if t["step"] == step and t["task"] == 0
+        ]
+        if output is not None:
+            _append_cancelled_line(output, job_id, step)
+    start = time.time()
+    killed = False
+    while survivors := [t for t in live if _alive(t["pid"])]:
+        elapsed = time.time() - start
+        if elapsed >= 2 * _KILL_WAIT:
+            break
+        if elapsed >= _KILL_WAIT and not killed:
+            for t in survivors:
+                with contextlib.suppress(ProcessLookupError):
+                    os.killpg(t["pid"], signal.SIGKILL)
+            killed = True
         time.sleep(_POLL_INTERVAL)
 
 
@@ -530,6 +623,8 @@ def _run(state_dir: Path, job_id: int) -> int:
                 },
             )
         rc = _wait_for_exit(state_dir, job_id, proc, pgid, force)
+        cancelled = read_job(state_dir, job_id)["state"] == "CANCELLED"
+        _teardown(state_dir, job_id, pgid, cancelled)
         update_job(state_dir, job_id, _finalize(rc, force))
     except Exception:
         with contextlib.suppress(Exception):
@@ -757,7 +852,47 @@ def _sacct(args: list[str], state_dir: Path) -> int:
 # --- scontrol ---
 
 
+def _requeue(state_dir: Path, job_id: int) -> int:
+    with locked(state_dir):
+        try:
+            job = read_job(state_dir, job_id)
+        except FileNotFoundError:
+            print(
+                "slurm_load_jobs error: Invalid job id specified",
+                file=sys.stderr,
+            )
+            return 1
+        if job["state"] not in TERMINAL_STATES:
+            print(
+                "scontrol: error: fake-slurm requeue needs a finished job",
+                file=sys.stderr,
+            )
+            return 1
+        write_job_atomic(
+            state_dir,
+            job_id,
+            {
+                **job,
+                "state": "PENDING",
+                "reason": None,
+                "pid": None,
+                "pgid": None,
+                "runner_pid": None,
+                "start_time": None,
+                "end_time": None,
+                "exit_code": None,
+                "steps": [],
+                "step_tasks": [],
+                "restart_count": job["restart_count"] + 1,
+            },
+        )
+    _spawn_runner(job_id)
+    return 0
+
+
 def _scontrol(args: list[str], state_dir: Path) -> int:
+    if args[:1] == ["requeue"]:
+        return _requeue(state_dir, int(args[1]))
     job_id = int(args[-1])
     try:
         job = read_job(state_dir, job_id)
@@ -781,26 +916,211 @@ def _scontrol(args: list[str], state_dir: Path) -> int:
 # --- mpiexec / srun ---
 
 
-def _strip_launcher_opts(args: list[str]) -> list[str]:
-    """Splits launcher options from the wrapped command. A `-`-prefixed
-    token without `=` consumes itself and its value; one with `=` is
-    self-contained. The first non-option token starts the command."""
+def _parse_launcher_args(
+    args: list[str], flags: frozenset[str]
+) -> tuple[dict[str, str], list[str]]:
+    """Splits launcher options from the wrapped command. A token in
+    `flags` is a value-less option; any other `-`-prefixed token with `=`
+    is self-contained, and one without `=` consumes the next token as its
+    value. The first non-option token starts the command. Option keys are
+    the token's name without its leading dashes; a later duplicate
+    overrides an earlier one."""
+    options: dict[str, str] = {}
     i = 0
     while i < len(args):
         token = args[i]
         if not token.startswith("-"):
-            return args[i:]
-        i += 1 if "=" in token else 2
-    return []
+            return options, args[i:]
+        name, sep, value = token.lstrip("-").partition("=")
+        if token in flags:
+            options[name] = ""
+            i += 1
+        elif sep:
+            options[name] = value
+            i += 1
+        else:
+            options[name] = args[i + 1] if i + 1 < len(args) else ""
+            i += 2
+    return options, []
 
 
 def _mpiexec(args: list[str], state_dir: Path) -> int:
-    cmd = _strip_launcher_opts(args)
+    _, cmd = _parse_launcher_args(args, frozenset())
     os.execvp(cmd[0], cmd)
 
 
+def _parse_ntasks(raw: str) -> int | None:
+    if raw.isascii() and raw.isdigit() and int(raw) >= 1:
+        return int(raw)
+    return None
+
+
+def _expand_output(pattern: str, job_id: int, task: int) -> str:
+    values = {"%j": str(job_id), "%t": str(task)}
+    return re.sub(r"%[jt]", lambda m: values[m.group()], pattern)
+
+
+def _task_env(env: dict[str, str], task: int, ntasks: int) -> dict[str, str]:
+    return {
+        **env,
+        "SLURMD_NODENAME": f"fake-node{task}",
+        "SLURM_NODEID": str(task),
+        "SLURM_PROCID": str(task),
+        "SLURM_NNODES": str(ntasks),
+    }
+
+
+def _step_status(returncodes: list[int]) -> int:
+    return max(128 - rc if rc < 0 else rc for rc in returncodes)
+
+
+def _abort_step(
+    procs: list[subprocess.Popen[bytes]],
+    output: str | None,
+    job_id: int,
+    step: int,
+) -> int:
+    """The srun client's reaction to SIGTERM (probe T8): it turns it into a
+    KILL of the step, so no task sees a TERM."""
+    print("srun: forcing job termination", file=sys.stderr)
+    print(
+        f"srun: Job step aborted: Waiting up to {int(_KILL_WAIT) + 2}"
+        " seconds for job step to finish.",
+        file=sys.stderr,
+    )
+    for proc in procs:
+        with contextlib.suppress(ProcessLookupError):
+            os.killpg(proc.pid, signal.SIGKILL)
+    killed = [
+        task
+        for task, proc in enumerate(procs)
+        if proc.wait() == -signal.SIGKILL
+    ]
+    for task in reversed(killed):
+        print(
+            f"srun: error: fake-node{task}: task {task}: Killed",
+            file=sys.stderr,
+        )
+    if killed and output is not None:
+        _append_cancelled_line(output, job_id, step)
+    return 128 + signal.SIGKILL
+
+
+def _wait_step(
+    procs: list[subprocess.Popen[bytes]],
+    received: list[int],
+    output: str | None,
+    job_id: int,
+    step: int,
+) -> int:
+    handled = 0
+    while True:
+        pending = received[handled:]
+        handled += len(pending)
+        if signal.SIGTERM in pending:
+            return _abort_step(procs, output, job_id, step)
+        for _ in pending:
+            for proc in procs:
+                if proc.poll() is None:
+                    with contextlib.suppress(ProcessLookupError):
+                        os.killpg(proc.pid, signal.SIGINT)
+        if all(proc.poll() is not None for proc in procs):
+            return _step_status([proc.wait() for proc in procs])
+        time.sleep(_POLL_INTERVAL)
+
+
+def _run_step(state_dir: Path, options: dict[str, str], cmd: list[str]) -> int:
+    ntasks = _parse_ntasks(options["ntasks"])
+    if ntasks is None:
+        print(
+            "srun: error: --ntasks must be a positive integer, got "
+            f"'{options['ntasks']}'",
+            file=sys.stderr,
+        )
+        return 1
+    raw_job_id = os.environ.get("SLURM_JOB_ID")
+    if not raw_job_id:
+        print(
+            "srun: error: --ntasks needs SLURM_JOB_ID; run srun inside a "
+            "fake-Slurm job",
+            file=sys.stderr,
+        )
+        return 1
+    job_id = int(raw_job_id)
+    if (state_dir / FAIL_STEP_START_FLAG).exists():
+        print(
+            f"srun: error: Unable to create step for job {job_id}: "
+            "fake-slurm step-start failure",
+            file=sys.stderr,
+        )
+        return 1
+    received: list[int] = []
+
+    def _record(signum: int, _frame: FrameType | None) -> None:
+        received.append(signum)
+
+    # Before any spawn: an INT inherited as ignored from a `&` start would
+    # otherwise survive `exec` into the tasks.
+    signal.signal(signal.SIGTERM, _record)
+    signal.signal(signal.SIGINT, _record)
+    pattern = options.get("output")
+    paths = (
+        [_expand_output(pattern, job_id, task) for task in range(ntasks)]
+        if pattern is not None
+        else []
+    )
+    procs: list[subprocess.Popen[bytes]] = []
+    try:
+        with locked(state_dir), contextlib.ExitStack() as stack:
+            fds: dict[str, int] = {}
+            for path in dict.fromkeys(paths):
+                fds[path] = os.open(
+                    path,
+                    os.O_WRONLY | os.O_CREAT | os.O_TRUNC | os.O_APPEND,
+                    0o666,
+                )
+                stack.callback(os.close, fds[path])
+            for task in range(ntasks):
+                fd = fds[paths[task]] if paths else None
+                procs.append(
+                    subprocess.Popen(
+                        cmd,
+                        env=_task_env(dict(os.environ), task, ntasks),
+                        stdin=subprocess.DEVNULL,
+                        stdout=fd,
+                        stderr=fd,
+                        start_new_session=True,
+                    )
+                )
+            job = read_job(state_dir, job_id)
+            step = len({t["step"] for t in job["step_tasks"]})
+            records: list[StepTask] = [
+                {
+                    "pid": proc.pid,
+                    "task": task,
+                    "step": step,
+                    "output": paths[task] if paths else None,
+                }
+                for task, proc in enumerate(procs)
+            ]
+            write_job_atomic(
+                state_dir,
+                job_id,
+                {**job, "step_tasks": [*job["step_tasks"], *records]},
+            )
+    except OSError:
+        for proc in procs:
+            os.killpg(proc.pid, signal.SIGKILL)
+        for proc in procs:
+            proc.wait()
+        raise
+    return _wait_step(procs, received, records[0]["output"], job_id, step)
+
+
 def _srun(args: list[str], state_dir: Path) -> int:
-    cmd = _strip_launcher_opts(args)
+    options, cmd = _parse_launcher_args(args, _SRUN_FLAGS)
+    if "ntasks" in options:
+        return _run_step(state_dir, options, cmd)
     env = dict(os.environ)
     env["SLURM_PROCID"] = "0"
     env["SLURM_NNODES"] = env.get("SLURM_JOB_NUM_NODES", "1")

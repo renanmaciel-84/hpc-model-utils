@@ -47,7 +47,7 @@ from hpc_model_utils.infra.telemetry.procfs import (
 )
 from tests.support.telemetry_tree import load_bundle, materialize
 
-BUNDLES = ("workstation", "synthetic")
+BUNDLES = ("workstation", "synthetic", "prd")
 
 _CPU = "cpu  1 2 3 4 5 6 7 8\n"
 _CPU0 = "cpu0 1 2 3 4 5 6 7 8\n"
@@ -512,6 +512,19 @@ def test_discovery_workstation_tree_drops_loop_and_virtual_devices(
     assert list_efa_ports(root) == ()
 
 
+# [T3, T7] the device-link and hidden-flag filters are probe facts
+@pytest.mark.parametrize("snapshot", (0, 1))
+def test_discovery_prd_tree_returns_the_nvme_disk_ena_port_and_efa_port(
+    tmp_path: Path, snapshot: int
+) -> None:
+    root = materialize(load_bundle("prd"), snapshot, tmp_path)
+    assert list_whole_disks(root) == ("nvme0n1",)
+    assert list_physical_netdevs(root) == ("ens130",)
+    assert list_efa_ports(root) == (
+        "sys/class/infiniband/rdmap150s0/ports/1/hw_counters",
+    )
+
+
 def test_discovery_empty_root_returns_empty_tuples(tmp_path: Path) -> None:
     assert list_whole_disks(tmp_path) == ()
     assert list_physical_netdevs(tmp_path) == ()
@@ -784,6 +797,26 @@ def test_select_mount_workstation_resolves_real_entries(snapshot: int) -> None:
     assert (data.mountpoint, data.fstype) == ("/mnt/data", "autofs")
     shadow = _mount("workstation", snapshot, "/proc/sys/fs/binfmt_misc/x")
     assert (shadow.device, shadow.fstype) == ("binfmt_misc", "binfmt_misc")
+
+
+# [T7] the NFS mount entry and its bytes: and per-op layouts are probe facts
+@pytest.mark.parametrize(
+    ("snapshot", "expected"),
+    [
+        (0, (7692, 29582, 0, 0, 2398, 17625, 1, 0, 7, 4, 87)),
+        (1, (7928, 329985, 0, 0, 2398, 318094, 1, 0, 48, 29, 538)),
+    ],
+)
+def test_select_mount_prd_resolves_the_workspace_mount_and_its_counters(
+    snapshot: int, expected: tuple[int, ...]
+) -> None:
+    entry = _mount("prd", snapshot, "/shared-zfs/ws-prd")
+    assert (entry.device, entry.mountpoint, entry.fstype) == (
+        "fsx.example.invalid:/fsx",
+        "/shared-zfs",
+        "nfs4",
+    )
+    assert tuple(parse_nfs_counters(entry)) == expected
 
 
 # [T7] the NFS bytes: and per-op layouts are probe facts
@@ -1115,6 +1148,17 @@ def test_job_cgroup_paths_synthetic_returns_the_job_and_own_step(
     result = job_cgroup_paths(_own_path("synthetic", snapshot))
     assert result == (_JOB, _STEP_0)
     assert "4711" not in "".join(filter(None, result))
+
+
+# [T1, T2, T3] the step component under the job cgroup is a probe fact
+@pytest.mark.parametrize("snapshot", (0, 1))
+def test_job_cgroup_paths_prd_returns_the_job_and_its_numeric_step(
+    snapshot: int,
+) -> None:
+    assert job_cgroup_paths(_own_path("prd", snapshot)) == (
+        "/system.slice/slurmstepd.scope/job_4711",
+        "/system.slice/slurmstepd.scope/job_4711/step_1",
+    )
 
 
 # [T1, T2, T3] the cgroup file set and layouts are probe facts
@@ -1496,6 +1540,27 @@ def test_read_static_facts_synthetic_returns_every_fact(
     facts, errors = _facts(tmp_path, _SLURM_ENV, snapshot=snapshot)
     assert facts == _SYNTHETIC_FACTS
     assert errors == []
+
+
+# [T3, T7] the cpuinfo, DMI and Slurm variable shapes are probe facts
+@pytest.mark.parametrize("snapshot", (0, 1))
+def test_read_static_facts_prd_returns_the_file_facts(
+    tmp_path: Path, snapshot: int
+) -> None:
+    root = materialize(load_bundle("prd"), snapshot, tmp_path)
+    assert read_static_facts(root, {}, 0) == (
+        StaticFacts(
+            "c7a.48xlarge",
+            "AMD EPYC 9R14",
+            192,
+            397160148992,
+            "6.8.0-1024-aws",
+            None,
+            None,
+            None,
+        ),
+        [],
+    )
 
 
 # [T3, T7] the cpuinfo, DMI and Slurm variable shapes are probe facts

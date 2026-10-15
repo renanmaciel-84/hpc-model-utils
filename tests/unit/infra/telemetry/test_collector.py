@@ -37,6 +37,9 @@ _WORKSPACE_COLUMNS = [
 ]
 _WALK_COLUMNS = ["apparent_bytes", "allocated_bytes", "files", "dirs", "walk_s"]
 _STEP_DIR = "sys/fs/cgroup/system.slice/slurmstepd.scope/job_s7f3a9c2e/step_0/"
+_JOB_PIDS = (
+    "sys/fs/cgroup/system.slice/slurmstepd.scope/job_s7f3a9c2e/pids.current"
+)
 _EXPECTED: dict[str, float | int | None] = {
     "cpu_busy_cores": 1.55,
     "cpu_util": 0.3875,
@@ -365,6 +368,54 @@ def test_sample_workstation_tree_reports_cpu_and_memory(
     assert values["mem_used_bytes"] is not None
     assert _all_none(values, "cgroup")
     assert {source for source, _ in errors} <= SOURCES
+
+
+def test_sample_prd_tree_reads_job_cgroup_without_pids_current(
+    tmp_path: Path,
+) -> None:
+    bundle = load_bundle("prd")
+    materialize(bundle, 0, tmp_path)
+    collector = Collector(tmp_path, Path("/shared-zfs/ws-prd"))
+    assert collector.startup_errors == ()
+    assert collector.baseline() == []
+    materialize(bundle, 1, tmp_path)
+    values, errors = collector.sample(5.31)
+    assert errors == []
+    assert {k for k, v in values.items() if v is None} == {
+        "job_pids",
+        "nfs_read_rtt_ms",
+    }
+    assert values["job_mem_bytes"] == 124329984
+    assert values["job_mem_peak_bytes"] == 134823936
+    assert values["job_oom_kills"] == 0
+    assert values["job_cpu_cores"] is not None
+    assert 191.5 < values["job_cpu_cores"] <= 192.0
+    assert values["efa_rx_bytes_per_s"] == 0.0
+    assert values["efa_tx_bytes_per_s"] == 0.0
+
+
+def test_baseline_unparseable_pids_current_nulls_the_cgroup_source(
+    tmp_path: Path,
+) -> None:
+    materialize(_SYNTHETIC, 0, tmp_path, {_JOB_PIDS: "max\n"})
+    collector = Collector(tmp_path, _WORKSPACE)
+    errors = collector.baseline()
+    assert [(source, type(exc)) for source, exc in errors] == [
+        ("cgroup", ValueError)
+    ]
+
+
+def test_baseline_pids_current_other_than_missing_is_not_swallowed(
+    tmp_path: Path,
+) -> None:
+    materialize(_SYNTHETIC, 0, tmp_path)
+    (tmp_path / _JOB_PIDS).unlink()
+    (tmp_path / _JOB_PIDS).mkdir()
+    collector = Collector(tmp_path, _WORKSPACE)
+    errors = collector.baseline()
+    assert [(source, type(exc)) for source, exc in errors] == [
+        ("cgroup", IsADirectoryError)
+    ]
 
 
 def test_counter_sources_are_schema_sources_with_every_collected_column() -> (
