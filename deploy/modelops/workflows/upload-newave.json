@@ -213,7 +213,7 @@
       "description": "Versao do hpc-model-utils a ser utilizada",
       "name": "utilsAppVersion",
       "type": "String",
-      "defaultValue": "v2.2.1",
+      "defaultValue": "v2.2.2",
       "visible": false,
       "regexPattern": "",
       "format": "",
@@ -224,7 +224,7 @@
       "description": "Commit do hpc-model-utils fixado junto com a versao",
       "name": "utilsAppSha",
       "type": "String",
-      "defaultValue": "3e94f2d89207704506163b9ea5d2ece8ec5a995b",
+      "defaultValue": "0b7fc6cd7a355dc7b8dcd33d442246ad2eae9275",
       "visible": false,
       "regexPattern": "",
       "format": "",
@@ -235,7 +235,7 @@
       "description": "Versao do sintetizador-newave a ser utilizada",
       "name": "synthesisAppVersion",
       "type": "String",
-      "defaultValue": "v2.4.5",
+      "defaultValue": "v2.4.6",
       "visible": false,
       "regexPattern": "",
       "format": "",
@@ -246,7 +246,7 @@
       "description": "Commit do sintetizador-newave fixado junto com a versao",
       "name": "synthesisAppSha",
       "type": "String",
-      "defaultValue": "00305719ee16d92d02d645364bf054e7c9cb673d",
+      "defaultValue": "3df54dff1d510529a6ef159564c124a1624acb27",
       "visible": false,
       "regexPattern": "",
       "format": "",
@@ -282,49 +282,63 @@
       "alias": null,
       "taskId": "@@task:ensure-tools@@",
       "executionCriteria": null,
-      "onFailure": 1
+      "onFailure": 1,
+      "hidden": false,
+      "taskName": null
     },
     {
       "workflowTaskId": "0b5e939e-557f-42a7-8686-8a7797b96394",
       "alias": null,
       "taskId": "@@task:create-workdir@@",
       "executionCriteria": null,
-      "onFailure": 1
+      "onFailure": 1,
+      "hidden": false,
+      "taskName": null
     },
     {
       "workflowTaskId": "9f389016-6cce-4f90-980b-9266ae0008fe",
       "alias": "",
       "taskId": "@@task:ingest-offline@@",
       "executionCriteria": null,
-      "onFailure": 1
+      "onFailure": 1,
+      "hidden": false,
+      "taskName": null
     },
     {
       "workflowTaskId": "bb040560-103b-4dda-bba7-5e0d57d3c2b1",
       "alias": null,
       "taskId": "@@task:run@@",
       "executionCriteria": null,
-      "onFailure": 1
+      "onFailure": 1,
+      "hidden": false,
+      "taskName": null
     },
     {
       "workflowTaskId": "7dab1af4-6841-4c12-897e-811a9d07e87f",
       "alias": null,
       "taskId": "@@task:result-upload@@",
       "executionCriteria": null,
-      "onFailure": 1
+      "onFailure": 1,
+      "hidden": false,
+      "taskName": null
     },
     {
       "workflowTaskId": "b0655293-82e3-4146-8d50-22ed50625071",
       "alias": null,
       "taskId": "@@task:remove-workdir@@",
       "executionCriteria": null,
-      "onFailure": 1
+      "onFailure": 1,
+      "hidden": false,
+      "taskName": null
     },
     {
       "workflowTaskId": "6c450266-a68d-4cef-875d-7615149369a8",
       "alias": null,
       "taskId": "@@task:fetch-executables@@",
       "executionCriteria": null,
-      "onFailure": 1
+      "onFailure": 1,
+      "hidden": false,
+      "taskName": null
     }
   ],
   "cancelationTasks": [

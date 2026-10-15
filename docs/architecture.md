@@ -444,11 +444,18 @@ to the repository root.
   `DataError`.
 - The diagnosis never returns `INFEASIBLE`.
 - The summary labels the diagnosis reads (`Backend:`, `Solver:` and the
-  stopping-rule names in `TERMINATION_REASONS`) are pinned to cobre v0.14.0
-  through v0.17.0. Re-verify them against cobre's own source on every cobre
-  upgrade, and update
-  `src/hpc_model_utils/models/cobre/diagnosis.py::TERMINATION_REASONS` and
-  the matching patterns if they changed.
+  stopping-rule names in `TERMINATION_REASONS`), the exit codes and the
+  metadata keys are pinned to cobre v0.14.0 through v0.18.0. Re-verify them
+  against cobre's own source on every cobre upgrade, and update
+  `src/hpc_model_utils/models/cobre/diagnosis.py` if they changed.
+- From v0.18.0, a SIGTERM or SIGINT during training makes cobre stop at the
+  next iteration boundary, write the training outputs and the policy
+  checkpoint, and exit 5. The diagnosis reads those outputs and reports
+  `CANCELLED` ("training stopped on request"), or `TIMEOUT` when Slurm says
+  the job timed out. Earlier releases die on the signal (exit 143).
+- v0.18.0 names the release in `training/metadata.json` as
+  `software_version` (`cobre_version` before it); the diagnosis reads
+  either.
 - The dashboard comes from cobre-bridge `v0.17.0`, pinned in the cobre
   workflow as `synthesisAppVersion`/`synthesisAppSha` and installed by
   `ensure-utils`; it runs only when `output/simulation/` exists

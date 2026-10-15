@@ -100,7 +100,7 @@ PARAMETER_NAMES = (
     "versionsBucket",
     "jobTimeoutHours",
 )
-UTILS_TAG = "v2.2.1"
+UTILS_TAG = "v2.2.2"
 BRIDGE_TAG = "v0.17.0"
 BRIDGE_SHA = "1b059ac505a8d57b6549c0a60411c41a9d7167cb"
 UPLOAD_WORKFLOW = "workflows/upload-versao.json"
@@ -120,11 +120,11 @@ SHAPES: dict[str, tuple[str, str, bool, str, str, list[str]]] = {
     "maxCoresPerNode": ("Int", "100", True, "", "", []),
     "queue": (
         "List",
-        "@@env:queueDecomp@@",
+        "@@env:queueCobre@@",
         True,
         "",
         "",
-        ["@@env:queueNewave@@", "@@env:queueDecomp@@", "@@env:queueTest@@"],
+        ["@@env:queueNewave@@", "@@env:queueDecomp@@", "@@env:queueCobre@@"],
     ),
     "modelName": ("String", "cobre", False, "", "", []),
     "modelVersion": ("List", "v0.17.0", True, "", "", ["v0.17.0"]),

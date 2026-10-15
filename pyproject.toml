@@ -1,6 +1,6 @@
 [project]
 name = "hpc-model-utils"
-version = "2.2.2"
+version = "2.2.3"
 description = "CLI tool for running energy planning models (NEWAVE, DECOMP, cobre) in HPC clusters with SLURM and AWS S3 integration"
 readme = "README.md"
 license = "MIT"
