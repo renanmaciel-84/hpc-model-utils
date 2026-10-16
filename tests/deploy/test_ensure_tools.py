@@ -28,6 +28,7 @@ REPO_ROOT = Path(__file__).resolve().parents[2]
 SCRIPT = REPO_ROOT / "deploy" / "modelops" / "scripts" / "ensure-tools.sh"
 PYTHON = "3.12.7"
 TOOL = "demo-tool"
+UTILS_TOOL = "hpc-model-utils"
 SMOKE = "demo-cli"
 ANNOTATED_TAG = "v1.0.0"
 LIGHTWEIGHT_TAG = "v1.0.1"
@@ -97,7 +98,13 @@ case "${1:-} ${2:-}" in
     ver=$3
     patch="$UV_PYTHON_INSTALL_DIR/cpython-$ver-$plat"
     mkdir -p "$patch/bin"
-    printf '#!__BASH__\nexit 0\n' >"$patch/bin/python3"
+    printf '%s\n' \
+      '#!__BASH__' \
+      'printf '\''%s %s\n'\'' "$(readlink "/proc/$$/fd/0" || true)" "$*" >>"$FAKE_SMOKE_CALLS"' \
+      'if [[ ${FAKE_PYTHON_IMPORT_FAIL:-0} == 1 ]]; then' \
+      '  echo "fake python stderr" >&2' \
+      '  exit 1' \
+      'fi' >"$patch/bin/python3"
     chmod 0755 "$patch/bin/python3"
     ln -sfn "cpython-$ver-$plat" "$UV_PYTHON_INSTALL_DIR/cpython-${ver%.*}-$plat"
     echo "fake uv: installed python $ver" >&2
@@ -189,6 +196,7 @@ class Harness:
         sha: str | None = None,
         python: str = PYTHON,
         extra: Sequence[str] = (),
+        name: str = TOOL,
     ) -> list[str]:
         return [
             "--root",
@@ -199,7 +207,7 @@ class Harness:
             python,
             *extra,
             "--tool",
-            TOOL,
+            name,
             self.remote.url,
             tag,
             sha or self.remote.commit,
@@ -340,15 +348,19 @@ def _named_log(line: str, harness: Harness) -> Path:
 
 
 def _assert_runtime_failure(
-    result: subprocess.CompletedProcess[str], harness: Harness, sha: str
+    result: subprocess.CompletedProcess[str],
+    harness: Harness,
+    sha: str,
+    *,
+    name: str = TOOL,
 ) -> tuple[str, Path]:
     assert result.returncode == 1, result.stderr
     assert result.stdout == ""
     lines = result.stderr.splitlines()
     assert len(lines) == 1, result.stderr
-    assert lines[0].startswith(f"ensure-tools: {TOOL}@{sha}: ")
+    assert lines[0].startswith(f"ensure-tools: {name}@{sha}: ")
     log = _named_log(lines[0], harness)
-    assert not (harness.install_dir(sha=sha) / ".ready").exists()
+    assert not (harness.install_dir(name, sha=sha) / ".ready").exists()
     return lines[0], log
 
 
@@ -613,6 +625,26 @@ def test_ensure_tools_miss_path_two_tools_print_in_argument_order(
     ]
 
 
+def test_ensure_tools_miss_path_pyarrow_import_runs_after_help(
+    harness: Harness,
+) -> None:
+    # stdin mode: the script's own stdin is a pipe, so a /dev/null record
+    # proves the step's </dev/null redirect.
+    result = harness.run(harness.argv(name=UTILS_TOOL), stdin_mode=True)
+
+    assert result.returncode == 0, result.stderr
+    assert result.stderr == ""
+    assert result.stdout == harness.line(UTILS_TOOL)
+    assert (harness.install_dir(UTILS_TOOL) / ".ready").is_file()
+    assert harness.smoke_calls.read_text().splitlines() == [
+        "/dev/null --help",
+        "/dev/null -I -c import pyarrow.parquet",
+    ]
+    logs = _logs(harness.root)
+    assert len(logs) == 1
+    assert "== smoke import: pyarrow.parquet" in logs[0].read_text()
+
+
 def test_ensure_tools_hit_path_makes_no_calls_and_writes_nothing(
     harness: Harness,
 ) -> None:
@@ -629,6 +661,25 @@ def test_ensure_tools_hit_path_makes_no_calls_and_writes_nothing(
     assert _read_calls(harness.git_calls) == []
     assert _read_calls(harness.uv_calls) == []
     assert not harness.smoke_calls.exists()
+    assert _snapshot(harness.root) == before
+
+
+def test_ensure_tools_hit_path_pyarrow_import_not_rerun(
+    harness: Harness,
+) -> None:
+    first = harness.run(harness.argv(name=UTILS_TOOL))
+    assert first.returncode == 0, first.stderr
+    harness.reset_calls()
+    _clear_logs(harness.root)
+    before = _snapshot(harness.root)
+
+    second = harness.run(harness.argv(name=UTILS_TOOL))
+
+    assert second.returncode == 0, second.stderr
+    assert second.stderr == ""
+    assert second.stdout == harness.line(UTILS_TOOL)
+    assert not harness.smoke_calls.exists()
+    assert _logs(harness.root) == []
     assert _snapshot(harness.root) == before
 
 
@@ -765,6 +816,26 @@ def test_ensure_tools_failure_leaves_no_ready(
     assert detail in log.read_text()
     for raw in ("fake uv sync", "fake smoke", "exploded"):
         assert raw not in result.stderr
+
+
+def test_ensure_tools_failure_pyarrow_import_fails_leaves_no_ready(
+    harness: Harness,
+) -> None:
+    sha = harness.remote.commit
+
+    result = harness.run(
+        harness.argv(name=UTILS_TOOL),
+        extra_env={"FAKE_PYTHON_IMPORT_FAIL": "1"},
+    )
+
+    line, log = _assert_runtime_failure(result, harness, sha, name=UTILS_TOOL)
+    assert line.startswith(
+        f"ensure-tools: {UTILS_TOOL}@{sha}: "
+        "smoke import 'pyarrow.parquet' failed (log: "
+    )
+    text = log.read_text()
+    assert "ensure-tools: FAILED: smoke import 'pyarrow.parquet' failed" in text
+    assert "fake python stderr" in text
 
 
 def test_ensure_tools_failure_missing_venv_python(harness: Harness) -> None:

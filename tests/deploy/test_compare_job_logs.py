@@ -521,8 +521,7 @@ def test_prd_perturbed_log_is_equal_in_prd_and_unequal_in_strict() -> None:
     on = [c.perturbed for c in _MASK_CASES]
     assert _compare(off, on, mode=Mode.PRD) is None
     assert _compare(off, on, mode=Mode.STRICT) is not None
-    masked = [mask_line(x, mode=Mode.PRD, root=None) for x in off]
-    assert len(masked) == len(off)
+    assert all(b != p for b, p in zip(off, on, strict=True))
 
 
 def test_prd_injected_srun_line_is_a_signature_difference() -> None:

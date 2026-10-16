@@ -1,0 +1,2253 @@
+{
+  "schema_version": 1,
+  "kinds": {
+    "header": "hpcmu.telemetry.header",
+    "samples": "hpcmu.telemetry.samples",
+    "workspace": "hpcmu.telemetry.workspace",
+    "summary": "hpcmu.telemetry.summary"
+  },
+  "phases": [
+    "model",
+    "finalize"
+  ],
+  "files": [
+    {
+      "name": "samples.parquet",
+      "kind": "hpcmu.telemetry.samples",
+      "sort_keys": [
+        "phase",
+        "job_id",
+        "restart",
+        "node_index",
+        "ts"
+      ]
+    },
+    {
+      "name": "workspace.parquet",
+      "kind": "hpcmu.telemetry.workspace",
+      "sort_keys": [
+        "phase",
+        "job_id",
+        "restart",
+        "ts"
+      ]
+    },
+    {
+      "name": "summary.json",
+      "kind": "hpcmu.telemetry.summary",
+      "sort_keys": []
+    }
+  ],
+  "parquet_metadata": [
+    {
+      "name": "hpcmu.telemetry.schema_version",
+      "meaning": "SCHEMA_VERSION as a decimal string"
+    },
+    {
+      "name": "hpcmu.telemetry.kind",
+      "meaning": "SAMPLES_KIND or WORKSPACE_KIND"
+    },
+    {
+      "name": "hpcmu.tool_version",
+      "meaning": "the hpc-model-utils version that ran the export"
+    },
+    {
+      "name": "hpcmu.run_id",
+      "meaning": "the run_id of state.json"
+    },
+    {
+      "name": "hpcmu.model",
+      "meaning": "the plugin name of the run (state.json plugin)"
+    },
+    {
+      "name": "hpcmu.headers",
+      "meaning": "the JSON list of the valid staging headers, in sample sort order"
+    }
+  ],
+  "meaning_conventions": [
+    "Δ is the difference between this sample's read and the previous one.",
+    "online CPUs is the number of cpuN lines in /proc/stat.",
+    "Every rate is null on a counter decrease, on a missing baseline, or after a failed read of its source.",
+    "The /proc/stat CPU columns follow the per-line ADR-093 rule written into their meanings.",
+    "A source whose read fails leaves every column of that source null in that sample; its rates are also null in the next sample, which has no baseline.",
+    "A source with nothing to read (no job cgroup, a workspace not on an NFS mount, no EFA device) leaves its columns null and writes no error line.",
+    "A float that is not finite is written as null.",
+    "Every cgroup column is null when the header's job_cgroup is null.",
+    "A header field whose source cannot be read or parsed, a malformed Slurm variable included, is null."
+  ],
+  "sample_columns": [
+    {
+      "name": "ts",
+      "dtype": "TIMESTAMP_MS_UTC",
+      "nullable": false,
+      "unit": "-",
+      "source": "identity",
+      "meaning": "scheduled sample instant, a multiple of interval_s on the wall-clock grid, except the off-grid final sample taken at SIGTERM or SIGINT; strictly increasing per staging file"
+    },
+    {
+      "name": "phase",
+      "dtype": "STRING",
+      "nullable": false,
+      "unit": "-",
+      "source": "identity",
+      "meaning": "job phase, one of PHASES"
+    },
+    {
+      "name": "job_id",
+      "dtype": "STRING",
+      "nullable": false,
+      "unit": "-",
+      "source": "identity",
+      "meaning": "Slurm job id (SLURM_JOB_ID)"
+    },
+    {
+      "name": "restart",
+      "dtype": "INT16",
+      "nullable": false,
+      "unit": "-",
+      "source": "identity",
+      "meaning": "SLURM_RESTART_COUNT of the attempt, 0 when unset"
+    },
+    {
+      "name": "node",
+      "dtype": "STRING",
+      "nullable": false,
+      "unit": "-",
+      "source": "identity",
+      "meaning": "Slurm node name (SLURMD_NODENAME), or the host name (uname nodename) when SLURMD_NODENAME is unset"
+    },
+    {
+      "name": "node_index",
+      "dtype": "INT16",
+      "nullable": false,
+      "unit": "-",
+      "source": "identity",
+      "meaning": "SLURM_NODEID"
+    },
+    {
+      "name": "seq",
+      "dtype": "INT32",
+      "nullable": false,
+      "unit": "count",
+      "source": "identity",
+      "meaning": "0-based sample number within the staging file; a gap means a dropped line"
+    },
+    {
+      "name": "dt_s",
+      "dtype": "FLOAT32",
+      "nullable": true,
+      "unit": "s",
+      "source": "sampler",
+      "meaning": "monotonic seconds since the previous counter read; for seq 0 the previous read is the unwritten start-up baseline"
+    },
+    {
+      "name": "sample_cost_ms",
+      "dtype": "FLOAT32",
+      "nullable": true,
+      "unit": "ms",
+      "source": "sampler",
+      "meaning": "sampler CPU time (getrusage user + system) spent on this sample, the workspace walk excluded"
+    },
+    {
+      "name": "sampler_maxrss_bytes",
+      "dtype": "INT64",
+      "nullable": true,
+      "unit": "bytes",
+      "source": "sampler",
+      "meaning": "sampler peak resident set size so far (ru_maxrss × 1024); ru_maxrss carries over execve, so it can only over-report"
+    },
+    {
+      "name": "cpu_busy_cores",
+      "dtype": "FLOAT32",
+      "nullable": true,
+      "unit": "cores",
+      "source": "stat",
+      "meaning": "Δbusy / T × online CPUs from the /proc/stat cpu line, with Δbusy = Δ(user + nice + system + irq + softirq) and T = Δbusy + Δsteal + max(Δidle + Δiowait, 0); null when a busy field or steal decreases, when Δidle + Δiowait < −1, or when T ≤ 0; steal is not busy"
+    },
+    {
+      "name": "cpu_util",
+      "dtype": "FLOAT32",
+      "nullable": true,
+      "unit": "fraction",
+      "source": "stat",
+      "meaning": "cpu_busy_cores / online CPUs; null as cpu_busy_cores"
+    },
+    {
+      "name": "cpu_user_cores",
+      "dtype": "FLOAT32",
+      "nullable": true,
+      "unit": "cores",
+      "source": "stat",
+      "meaning": "Δ(user + nice) / T × online CPUs; null as cpu_busy_cores"
+    },
+    {
+      "name": "cpu_system_cores",
+      "dtype": "FLOAT32",
+      "nullable": true,
+      "unit": "cores",
+      "source": "stat",
+      "meaning": "Δ(system + irq + softirq) / T × online CPUs; null as cpu_busy_cores"
+    },
+    {
+      "name": "cpu_iowait_cores",
+      "dtype": "FLOAT32",
+      "nullable": true,
+      "unit": "cores",
+      "source": "stat",
+      "meaning": "Δiowait / T × online CPUs; null as cpu_busy_cores, and also null when Δiowait < 0 or Δidle < 0"
+    },
+    {
+      "name": "cpu_steal_cores",
+      "dtype": "FLOAT32",
+      "nullable": true,
+      "unit": "cores",
+      "source": "stat",
+      "meaning": "Δsteal / T × online CPUs; null as cpu_busy_cores"
+    },
+    {
+      "name": "cpu_core_util_min",
+      "dtype": "FLOAT32",
+      "nullable": true,
+      "unit": "fraction",
+      "source": "stat",
+      "meaning": "minimum over the cpuN lines of Δbusy / T of that CPU, under the same null rule per CPU; a CPU meeting the null rule is left out, and the value is null when every CPU is"
+    },
+    {
+      "name": "cpu_core_util_p50",
+      "dtype": "FLOAT32",
+      "nullable": true,
+      "unit": "fraction",
+      "source": "stat",
+      "meaning": "median over the cpuN lines of Δbusy / T of that CPU, under the same null rule per CPU; a CPU meeting the null rule is left out, and the value is null when every CPU is"
+    },
+    {
+      "name": "cpu_core_util_max",
+      "dtype": "FLOAT32",
+      "nullable": true,
+      "unit": "fraction",
+      "source": "stat",
+      "meaning": "maximum over the cpuN lines of Δbusy / T of that CPU, under the same null rule per CPU; a CPU meeting the null rule is left out, and the value is null when every CPU is"
+    },
+    {
+      "name": "cpu_active_cores",
+      "dtype": "INT16",
+      "nullable": true,
+      "unit": "count",
+      "source": "stat",
+      "meaning": "number of cpuN lines with Δbusy / T >= 0.5, under the same null rule per CPU; null when every CPU is left out"
+    },
+    {
+      "name": "load1",
+      "dtype": "FLOAT32",
+      "nullable": true,
+      "unit": "-",
+      "source": "loadavg",
+      "meaning": "first field of /proc/loadavg"
+    },
+    {
+      "name": "procs_running",
+      "dtype": "INT32",
+      "nullable": true,
+      "unit": "count",
+      "source": "stat",
+      "meaning": "procs_running of /proc/stat at the sample"
+    },
+    {
+      "name": "procs_blocked",
+      "dtype": "INT32",
+      "nullable": true,
+      "unit": "count",
+      "source": "stat",
+      "meaning": "procs_blocked of /proc/stat at the sample"
+    },
+    {
+      "name": "mem_used_bytes",
+      "dtype": "INT64",
+      "nullable": true,
+      "unit": "bytes",
+      "source": "meminfo",
+      "meaning": "(MemTotal − MemAvailable) × 1024"
+    },
+    {
+      "name": "mem_available_bytes",
+      "dtype": "INT64",
+      "nullable": true,
+      "unit": "bytes",
+      "source": "meminfo",
+      "meaning": "MemAvailable × 1024"
+    },
+    {
+      "name": "mem_anon_bytes",
+      "dtype": "INT64",
+      "nullable": true,
+      "unit": "bytes",
+      "source": "meminfo",
+      "meaning": "AnonPages × 1024"
+    },
+    {
+      "name": "mem_cached_bytes",
+      "dtype": "INT64",
+      "nullable": true,
+      "unit": "bytes",
+      "source": "meminfo",
+      "meaning": "Cached × 1024"
+    },
+    {
+      "name": "mem_shmem_bytes",
+      "dtype": "INT64",
+      "nullable": true,
+      "unit": "bytes",
+      "source": "meminfo",
+      "meaning": "Shmem × 1024; includes MPI shared-memory segments in /dev/shm"
+    },
+    {
+      "name": "mem_dirty_bytes",
+      "dtype": "INT64",
+      "nullable": true,
+      "unit": "bytes",
+      "source": "meminfo",
+      "meaning": "Dirty × 1024"
+    },
+    {
+      "name": "mem_writeback_bytes",
+      "dtype": "INT64",
+      "nullable": true,
+      "unit": "bytes",
+      "source": "meminfo",
+      "meaning": "Writeback × 1024"
+    },
+    {
+      "name": "mem_slab_bytes",
+      "dtype": "INT64",
+      "nullable": true,
+      "unit": "bytes",
+      "source": "meminfo",
+      "meaning": "Slab × 1024"
+    },
+    {
+      "name": "swap_used_bytes",
+      "dtype": "INT64",
+      "nullable": true,
+      "unit": "bytes",
+      "source": "meminfo",
+      "meaning": "(SwapTotal − SwapFree) × 1024"
+    },
+    {
+      "name": "major_faults_per_s",
+      "dtype": "FLOAT32",
+      "nullable": true,
+      "unit": "1/s",
+      "source": "vmstat",
+      "meaning": "Δpgmajfault / dt_s"
+    },
+    {
+      "name": "oom_kills",
+      "dtype": "INT32",
+      "nullable": true,
+      "unit": "count",
+      "source": "vmstat",
+      "meaning": "Δoom_kill of /proc/vmstat in this interval"
+    },
+    {
+      "name": "job_cpu_cores",
+      "dtype": "FLOAT32",
+      "nullable": true,
+      "unit": "cores",
+      "source": "cgroup",
+      "meaning": "(Δusage_usec of the job cgroup − Δusage_usec of the sampler's own step) / (1e6 × dt_s), clamped at 0; no subtraction when own_step_cgroup is null"
+    },
+    {
+      "name": "job_mem_bytes",
+      "dtype": "INT64",
+      "nullable": true,
+      "unit": "bytes",
+      "source": "cgroup",
+      "meaning": "memory.current of the job cgroup − memory.current of the own step, clamped at 0; no subtraction when own_step_cgroup is null"
+    },
+    {
+      "name": "job_mem_anon_bytes",
+      "dtype": "INT64",
+      "nullable": true,
+      "unit": "bytes",
+      "source": "cgroup",
+      "meaning": "memory.stat anon of the job cgroup − anon of the own step, clamped at 0; no subtraction when own_step_cgroup is null"
+    },
+    {
+      "name": "job_mem_file_bytes",
+      "dtype": "INT64",
+      "nullable": true,
+      "unit": "bytes",
+      "source": "cgroup",
+      "meaning": "memory.stat file of the job cgroup − file of the own step, clamped at 0; no subtraction when own_step_cgroup is null"
+    },
+    {
+      "name": "job_mem_shmem_bytes",
+      "dtype": "INT64",
+      "nullable": true,
+      "unit": "bytes",
+      "source": "cgroup",
+      "meaning": "memory.stat shmem of the job cgroup − shmem of the own step, clamped at 0; no subtraction when own_step_cgroup is null"
+    },
+    {
+      "name": "job_mem_peak_bytes",
+      "dtype": "INT64",
+      "nullable": true,
+      "unit": "bytes",
+      "source": "cgroup",
+      "meaning": "memory.peak of the job cgroup: the kernel high-water mark since the cgroup was created, page cache and the sampler included; never subtracted"
+    },
+    {
+      "name": "job_pids",
+      "dtype": "INT32",
+      "nullable": true,
+      "unit": "count",
+      "source": "cgroup",
+      "meaning": "pids.current of the job cgroup, the sampler step included; null when the job cgroup has no pids controller (pids.current absent)"
+    },
+    {
+      "name": "job_oom_kills",
+      "dtype": "INT32",
+      "nullable": true,
+      "unit": "count",
+      "source": "cgroup",
+      "meaning": "Δoom_kill of the job cgroup's memory.events in this interval"
+    },
+    {
+      "name": "psi_cpu_some",
+      "dtype": "FLOAT32",
+      "nullable": true,
+      "unit": "fraction",
+      "source": "pressure",
+      "meaning": "Δ some total (µs) of /proc/pressure/cpu / (1e6 × dt_s), clamped to [0, 1]"
+    },
+    {
+      "name": "psi_mem_some",
+      "dtype": "FLOAT32",
+      "nullable": true,
+      "unit": "fraction",
+      "source": "pressure",
+      "meaning": "Δ some total of /proc/pressure/memory / (1e6 × dt_s), clamped to [0, 1]"
+    },
+    {
+      "name": "psi_mem_full",
+      "dtype": "FLOAT32",
+      "nullable": true,
+      "unit": "fraction",
+      "source": "pressure",
+      "meaning": "Δ full total of /proc/pressure/memory / (1e6 × dt_s), clamped to [0, 1]"
+    },
+    {
+      "name": "psi_io_some",
+      "dtype": "FLOAT32",
+      "nullable": true,
+      "unit": "fraction",
+      "source": "pressure",
+      "meaning": "Δ some total of /proc/pressure/io / (1e6 × dt_s), clamped to [0, 1]"
+    },
+    {
+      "name": "psi_io_full",
+      "dtype": "FLOAT32",
+      "nullable": true,
+      "unit": "fraction",
+      "source": "pressure",
+      "meaning": "Δ full total of /proc/pressure/io / (1e6 × dt_s), clamped to [0, 1]"
+    },
+    {
+      "name": "disk_read_bytes_per_s",
+      "dtype": "FLOAT64",
+      "nullable": true,
+      "unit": "bytes/s",
+      "source": "diskstats",
+      "meaning": "Σ Δsectors read × 512 / dt_s over whole local disks (a /sys/block/<dev>/device entry, and a /sys/block/<dev>/hidden file that is absent or holds 0) present in both reads"
+    },
+    {
+      "name": "disk_write_bytes_per_s",
+      "dtype": "FLOAT64",
+      "nullable": true,
+      "unit": "bytes/s",
+      "source": "diskstats",
+      "meaning": "Σ Δsectors written × 512 / dt_s over the same disks"
+    },
+    {
+      "name": "disk_busy_max",
+      "dtype": "FLOAT32",
+      "nullable": true,
+      "unit": "fraction",
+      "source": "diskstats",
+      "meaning": "maximum over the same disks of Δio_ticks (ms) / (1000 × dt_s), clamped to [0, 1]"
+    },
+    {
+      "name": "nfs_read_bytes_per_s",
+      "dtype": "FLOAT64",
+      "nullable": true,
+      "unit": "bytes/s",
+      "source": "mountstats",
+      "meaning": "Δ(normalreadbytes + directreadbytes) / dt_s of the workspace mount (the mountstats entry whose mountpoint is the longest prefix of the workspace path, its symlinks resolved)"
+    },
+    {
+      "name": "nfs_write_bytes_per_s",
+      "dtype": "FLOAT64",
+      "nullable": true,
+      "unit": "bytes/s",
+      "source": "mountstats",
+      "meaning": "Δ(normalwritebytes + directwritebytes) / dt_s of the workspace mount"
+    },
+    {
+      "name": "nfs_server_read_bytes_per_s",
+      "dtype": "FLOAT64",
+      "nullable": true,
+      "unit": "bytes/s",
+      "source": "mountstats",
+      "meaning": "Δserverreadbytes / dt_s of the workspace mount"
+    },
+    {
+      "name": "nfs_server_write_bytes_per_s",
+      "dtype": "FLOAT64",
+      "nullable": true,
+      "unit": "bytes/s",
+      "source": "mountstats",
+      "meaning": "Δserverwritebytes / dt_s of the workspace mount"
+    },
+    {
+      "name": "nfs_read_ops_per_s",
+      "dtype": "FLOAT32",
+      "nullable": true,
+      "unit": "1/s",
+      "source": "mountstats",
+      "meaning": "ΔREAD ops / dt_s of the workspace mount"
+    },
+    {
+      "name": "nfs_write_ops_per_s",
+      "dtype": "FLOAT32",
+      "nullable": true,
+      "unit": "1/s",
+      "source": "mountstats",
+      "meaning": "ΔWRITE ops / dt_s of the workspace mount"
+    },
+    {
+      "name": "nfs_ops_per_s",
+      "dtype": "FLOAT32",
+      "nullable": true,
+      "unit": "1/s",
+      "source": "mountstats",
+      "meaning": "Δ(ops summed over every per-op line) / dt_s of the workspace mount; on node 0 it includes the walk's own operations"
+    },
+    {
+      "name": "nfs_read_rtt_ms",
+      "dtype": "FLOAT32",
+      "nullable": true,
+      "unit": "ms",
+      "source": "mountstats",
+      "meaning": "ΔREAD rtt (ms) / ΔREAD ops; null when ΔREAD ops is 0"
+    },
+    {
+      "name": "nfs_write_rtt_ms",
+      "dtype": "FLOAT32",
+      "nullable": true,
+      "unit": "ms",
+      "source": "mountstats",
+      "meaning": "ΔWRITE rtt (ms) / ΔWRITE ops; null when ΔWRITE ops is 0"
+    },
+    {
+      "name": "net_rx_bytes_per_s",
+      "dtype": "FLOAT64",
+      "nullable": true,
+      "unit": "bytes/s",
+      "source": "netdev",
+      "meaning": "Σ Δreceive bytes / dt_s over interfaces with a /sys/class/net/<if>/device entry, present in both reads"
+    },
+    {
+      "name": "net_tx_bytes_per_s",
+      "dtype": "FLOAT64",
+      "nullable": true,
+      "unit": "bytes/s",
+      "source": "netdev",
+      "meaning": "Σ Δtransmit bytes / dt_s over the same interfaces"
+    },
+    {
+      "name": "net_errors_per_s",
+      "dtype": "FLOAT32",
+      "nullable": true,
+      "unit": "1/s",
+      "source": "netdev",
+      "meaning": "Σ Δ(rx errs + rx drop + tx errs + tx drop) / dt_s over the same interfaces"
+    },
+    {
+      "name": "efa_rx_bytes_per_s",
+      "dtype": "FLOAT64",
+      "nullable": true,
+      "unit": "bytes/s",
+      "source": "efa",
+      "meaning": "Σ Δhw_counters/rx_bytes / dt_s over /sys/class/infiniband/*/ports/1; null without an EFA device; MPI traffic over EFA bypasses net_*"
+    },
+    {
+      "name": "efa_tx_bytes_per_s",
+      "dtype": "FLOAT64",
+      "nullable": true,
+      "unit": "bytes/s",
+      "source": "efa",
+      "meaning": "Σ Δhw_counters/tx_bytes / dt_s over the same ports; null without an EFA device"
+    }
+  ],
+  "workspace_columns": [
+    {
+      "name": "ts",
+      "dtype": "TIMESTAMP_MS_UTC",
+      "nullable": false,
+      "unit": "-",
+      "source": "identity",
+      "meaning": "tick instant of the sample after which the walk ran"
+    },
+    {
+      "name": "phase",
+      "dtype": "STRING",
+      "nullable": false,
+      "unit": "-",
+      "source": "identity",
+      "meaning": "job phase, one of PHASES"
+    },
+    {
+      "name": "job_id",
+      "dtype": "STRING",
+      "nullable": false,
+      "unit": "-",
+      "source": "identity",
+      "meaning": "Slurm job id (SLURM_JOB_ID)"
+    },
+    {
+      "name": "restart",
+      "dtype": "INT16",
+      "nullable": false,
+      "unit": "-",
+      "source": "identity",
+      "meaning": "SLURM_RESTART_COUNT of the attempt, 0 when unset"
+    },
+    {
+      "name": "node",
+      "dtype": "STRING",
+      "nullable": false,
+      "unit": "-",
+      "source": "identity",
+      "meaning": "Slurm node name (SLURMD_NODENAME), or the host name (uname nodename) when SLURMD_NODENAME is unset"
+    },
+    {
+      "name": "apparent_bytes",
+      "dtype": "INT64",
+      "nullable": true,
+      "unit": "bytes",
+      "source": "walk",
+      "meaning": "Σ lstat st_size over every entry below the workspace root, .hpcmu/telemetry excluded"
+    },
+    {
+      "name": "allocated_bytes",
+      "dtype": "INT64",
+      "nullable": true,
+      "unit": "bytes",
+      "source": "walk",
+      "meaning": "Σ lstat st_blocks × 512 over the same entries"
+    },
+    {
+      "name": "files",
+      "dtype": "INT64",
+      "nullable": true,
+      "unit": "count",
+      "source": "walk",
+      "meaning": "non-directory entries"
+    },
+    {
+      "name": "dirs",
+      "dtype": "INT64",
+      "nullable": true,
+      "unit": "count",
+      "source": "walk",
+      "meaning": "directory entries below the root"
+    },
+    {
+      "name": "walk_s",
+      "dtype": "FLOAT32",
+      "nullable": true,
+      "unit": "s",
+      "source": "walk",
+      "meaning": "wall seconds the walk took"
+    },
+    {
+      "name": "fs_used_bytes",
+      "dtype": "INT64",
+      "nullable": true,
+      "unit": "bytes",
+      "source": "statvfs",
+      "meaning": "(f_blocks − f_bfree) × f_frsize of the workspace filesystem"
+    },
+    {
+      "name": "fs_avail_bytes",
+      "dtype": "INT64",
+      "nullable": true,
+      "unit": "bytes",
+      "source": "statvfs",
+      "meaning": "f_bavail × f_frsize"
+    }
+  ],
+  "header_fields": [
+    {
+      "name": "kind",
+      "json_type": "string",
+      "nullable": false,
+      "meaning": "line kind, hpcmu.telemetry.header"
+    },
+    {
+      "name": "schema_version",
+      "json_type": "integer",
+      "nullable": false,
+      "meaning": "telemetry schema version of the writer (SCHEMA_VERSION)"
+    },
+    {
+      "name": "tool_version",
+      "json_type": "string",
+      "nullable": false,
+      "meaning": "hpc-model-utils version, from the sampler's --tool-version argument"
+    },
+    {
+      "name": "phase",
+      "json_type": "string",
+      "nullable": false,
+      "meaning": "job phase, one of PHASES"
+    },
+    {
+      "name": "job_id",
+      "json_type": "string",
+      "nullable": false,
+      "meaning": "Slurm job id (SLURM_JOB_ID)"
+    },
+    {
+      "name": "restart",
+      "json_type": "integer",
+      "nullable": false,
+      "meaning": "SLURM_RESTART_COUNT of the attempt, 0 when unset"
+    },
+    {
+      "name": "node",
+      "json_type": "string",
+      "nullable": false,
+      "meaning": "Slurm node name (SLURMD_NODENAME), or the host name (uname nodename) when SLURMD_NODENAME is unset"
+    },
+    {
+      "name": "node_index",
+      "json_type": "integer",
+      "nullable": false,
+      "meaning": "SLURM_NODEID"
+    },
+    {
+      "name": "nodes",
+      "json_type": "integer",
+      "nullable": true,
+      "meaning": "SLURM_JOB_NUM_NODES; null when it is unset or empty"
+    },
+    {
+      "name": "partition",
+      "json_type": "string",
+      "nullable": true,
+      "meaning": "SLURM_JOB_PARTITION, stripped; null when it is unset or blank"
+    },
+    {
+      "name": "cpus_on_node",
+      "json_type": "integer",
+      "nullable": true,
+      "meaning": "SLURM_JOB_CPUS_PER_NODE indexed by SLURM_NODEID, after expanding Slurm's compressed list (192(x2) is 192, 192); null when SLURM_JOB_CPUS_PER_NODE is unset or empty, or when SLURM_NODEID is outside the expanded list"
+    },
+    {
+      "name": "instance_type",
+      "json_type": "string",
+      "nullable": true,
+      "meaning": "DMI product_name"
+    },
+    {
+      "name": "cpu_model",
+      "json_type": "string",
+      "nullable": true,
+      "meaning": "value of the first model name line of /proc/cpuinfo"
+    },
+    {
+      "name": "ncpus",
+      "json_type": "integer",
+      "nullable": true,
+      "meaning": "online CPUs"
+    },
+    {
+      "name": "mem_total_bytes",
+      "json_type": "integer",
+      "nullable": true,
+      "meaning": "MemTotal × 1024"
+    },
+    {
+      "name": "kernel",
+      "json_type": "string",
+      "nullable": true,
+      "meaning": "/proc/sys/kernel/osrelease"
+    },
+    {
+      "name": "job_cgroup",
+      "json_type": "string",
+      "nullable": true,
+      "meaning": "/sys/fs/cgroup path of the job cgroup, the parent of the step component of /proc/self/cgroup; null without a step component"
+    },
+    {
+      "name": "own_step_cgroup",
+      "json_type": "string",
+      "nullable": true,
+      "meaning": "/sys/fs/cgroup path of the sampler's own step, subtracted from the job values; null when the sampler's cgroup has no numbered step_N component (a step_batch, step_extern or step_interactive step, or no step), and then nothing is subtracted"
+    },
+    {
+      "name": "workspace_mount",
+      "json_type": "object",
+      "nullable": true,
+      "meaning": "{mountpoint, fstype} of the mountstats entry whose mountpoint is the longest prefix of the workspace path, its symlinks resolved; null when no entry matches"
+    },
+    {
+      "name": "interval_s",
+      "json_type": "integer",
+      "nullable": false,
+      "meaning": "sample interval in seconds, the sampler's --interval argument"
+    },
+    {
+      "name": "workspace_interval_s",
+      "json_type": "integer",
+      "nullable": false,
+      "meaning": "configured workspace walk interval in seconds, the sampler's --workspace-interval argument"
+    },
+    {
+      "name": "started_at",
+      "json_type": "string",
+      "nullable": false,
+      "meaning": "sampler start time, ISO 8601 UTC with milliseconds and a Z"
+    }
+  ],
+  "summary_fields": [
+    {
+      "path": "kind",
+      "json_type": "string",
+      "required": true,
+      "nullable": false,
+      "meaning": "the summary kind, hpcmu.telemetry.summary"
+    },
+    {
+      "path": "schema_version",
+      "json_type": "integer",
+      "required": true,
+      "nullable": false,
+      "meaning": "the schema version of the contract"
+    },
+    {
+      "path": "run",
+      "json_type": "object",
+      "required": true,
+      "nullable": false,
+      "meaning": "the run the export covers"
+    },
+    {
+      "path": "run.run_id",
+      "json_type": "string",
+      "required": true,
+      "nullable": false,
+      "meaning": "the run_id of state.json"
+    },
+    {
+      "path": "run.model",
+      "json_type": "string",
+      "required": true,
+      "nullable": false,
+      "meaning": "the plugin name of the run"
+    },
+    {
+      "path": "run.tool_version",
+      "json_type": "string",
+      "required": true,
+      "nullable": false,
+      "meaning": "the hpc-model-utils version that ran the export"
+    },
+    {
+      "path": "run.interval_s",
+      "json_type": "integer",
+      "required": true,
+      "nullable": true,
+      "meaning": "interval_s of the first valid header; null when no header is valid"
+    },
+    {
+      "path": "run.workspace_interval_s",
+      "json_type": "integer",
+      "required": true,
+      "nullable": true,
+      "meaning": "workspace_interval_s of the first valid header; null when no header is valid"
+    },
+    {
+      "path": "jobs",
+      "json_type": "array",
+      "required": true,
+      "nullable": false,
+      "meaning": "one entry per exported job, in the order of the recorded jobs"
+    },
+    {
+      "path": "jobs[].phase",
+      "json_type": "string",
+      "required": true,
+      "nullable": false,
+      "meaning": "a PHASES value"
+    },
+    {
+      "path": "jobs[].job_id",
+      "json_type": "string",
+      "required": true,
+      "nullable": false,
+      "meaning": "the Slurm job id"
+    },
+    {
+      "path": "jobs[].nodes",
+      "json_type": "array",
+      "required": true,
+      "nullable": false,
+      "meaning": "one entry per valid staging file of the job, in sample sort order"
+    },
+    {
+      "path": "jobs[].nodes[].header",
+      "json_type": "map",
+      "required": true,
+      "nullable": false,
+      "meaning": "the staging header, keys as in the staging header fields table"
+    },
+    {
+      "path": "jobs[].nodes[].first_ts",
+      "json_type": "integer",
+      "required": false,
+      "nullable": false,
+      "meaning": "ts of the first kept sample, in ms since the epoch; absent without a sample"
+    },
+    {
+      "path": "jobs[].nodes[].last_ts",
+      "json_type": "integer",
+      "required": false,
+      "nullable": false,
+      "meaning": "ts of the last kept sample; absent without a sample"
+    },
+    {
+      "path": "jobs[].nodes[].samples",
+      "json_type": "integer",
+      "required": true,
+      "nullable": false,
+      "meaning": "the number of kept samples"
+    },
+    {
+      "path": "jobs[].nodes[].gaps",
+      "json_type": "integer",
+      "required": true,
+      "nullable": false,
+      "meaning": "the number of samples whose dt_s exceeds 1.5 × interval_s"
+    },
+    {
+      "path": "jobs[].nodes[].max_gap_s",
+      "json_type": "number",
+      "required": false,
+      "nullable": false,
+      "meaning": "the largest non-null dt_s; absent when every dt_s is null"
+    },
+    {
+      "path": "jobs[].nodes[].stats",
+      "json_type": "map",
+      "required": true,
+      "nullable": false,
+      "meaning": "the samples.parquet statistics of this file, names as in the statistics table"
+    },
+    {
+      "path": "workspace",
+      "json_type": "object",
+      "required": true,
+      "nullable": false,
+      "meaning": "the workspace walks of every exported job"
+    },
+    {
+      "path": "workspace.walks",
+      "json_type": "integer",
+      "required": true,
+      "nullable": false,
+      "meaning": "the number of kept walks"
+    },
+    {
+      "path": "workspace.stats",
+      "json_type": "map",
+      "required": true,
+      "nullable": false,
+      "meaning": "the workspace.parquet statistics over every kept walk"
+    },
+    {
+      "path": "headline",
+      "json_type": "object",
+      "required": true,
+      "nullable": false,
+      "meaning": "the headline values and the jobs they come from"
+    },
+    {
+      "path": "headline.job_ids",
+      "json_type": "map",
+      "required": true,
+      "nullable": false,
+      "meaning": "for each phase, the job id of its last recorded job, the one the headline values report"
+    },
+    {
+      "path": "headline.values",
+      "json_type": "map",
+      "required": true,
+      "nullable": false,
+      "meaning": "the headline values, keys as in the headline table"
+    },
+    {
+      "path": "warnings",
+      "json_type": "array",
+      "required": true,
+      "nullable": false,
+      "meaning": "at most WARNINGS_CAP warnings, in file order then the missing nodes"
+    },
+    {
+      "path": "warnings[].code",
+      "json_type": "string",
+      "required": true,
+      "nullable": false,
+      "meaning": "a warning code"
+    },
+    {
+      "path": "warnings[].phase",
+      "json_type": "string",
+      "required": true,
+      "nullable": true,
+      "meaning": "the attempt's phase; null for warnings_capped"
+    },
+    {
+      "path": "warnings[].job_id",
+      "json_type": "string",
+      "required": true,
+      "nullable": true,
+      "meaning": "the attempt's job id; null for warnings_capped"
+    },
+    {
+      "path": "warnings[].restart",
+      "json_type": "integer",
+      "required": true,
+      "nullable": true,
+      "meaning": "the attempt's restart; null for warnings_capped"
+    },
+    {
+      "path": "warnings[].node_index",
+      "json_type": "integer",
+      "required": true,
+      "nullable": true,
+      "meaning": "the attempt's node index; null for warnings_capped"
+    },
+    {
+      "path": "warnings[].count",
+      "json_type": "integer",
+      "required": true,
+      "nullable": false,
+      "meaning": "the occurrences this warning stands for"
+    },
+    {
+      "path": "warnings[].message",
+      "json_type": "string",
+      "required": true,
+      "nullable": false,
+      "meaning": "a human-readable detail"
+    }
+  ],
+  "stat_aggregates": [
+    "min",
+    "mean",
+    "p95",
+    "p99",
+    "max",
+    "total"
+  ],
+  "sample_stats": [
+    {
+      "column": "sample_cost_ms",
+      "aggregates": [
+        "mean",
+        "p95",
+        "p99",
+        "max"
+      ],
+      "total_name": null,
+      "names": [
+        "sample_cost_ms_mean",
+        "sample_cost_ms_p95",
+        "sample_cost_ms_p99",
+        "sample_cost_ms_max"
+      ]
+    },
+    {
+      "column": "sampler_maxrss_bytes",
+      "aggregates": [
+        "max"
+      ],
+      "total_name": null,
+      "names": [
+        "sampler_maxrss_bytes_max"
+      ]
+    },
+    {
+      "column": "cpu_busy_cores",
+      "aggregates": [
+        "min",
+        "mean",
+        "p95",
+        "max"
+      ],
+      "total_name": null,
+      "names": [
+        "cpu_busy_cores_min",
+        "cpu_busy_cores_mean",
+        "cpu_busy_cores_p95",
+        "cpu_busy_cores_max"
+      ]
+    },
+    {
+      "column": "cpu_util",
+      "aggregates": [
+        "min",
+        "mean",
+        "p95",
+        "max"
+      ],
+      "total_name": null,
+      "names": [
+        "cpu_util_min",
+        "cpu_util_mean",
+        "cpu_util_p95",
+        "cpu_util_max"
+      ]
+    },
+    {
+      "column": "cpu_user_cores",
+      "aggregates": [
+        "min",
+        "mean",
+        "p95",
+        "max"
+      ],
+      "total_name": null,
+      "names": [
+        "cpu_user_cores_min",
+        "cpu_user_cores_mean",
+        "cpu_user_cores_p95",
+        "cpu_user_cores_max"
+      ]
+    },
+    {
+      "column": "cpu_system_cores",
+      "aggregates": [
+        "min",
+        "mean",
+        "p95",
+        "max"
+      ],
+      "total_name": null,
+      "names": [
+        "cpu_system_cores_min",
+        "cpu_system_cores_mean",
+        "cpu_system_cores_p95",
+        "cpu_system_cores_max"
+      ]
+    },
+    {
+      "column": "cpu_iowait_cores",
+      "aggregates": [
+        "min",
+        "mean",
+        "p95",
+        "max"
+      ],
+      "total_name": null,
+      "names": [
+        "cpu_iowait_cores_min",
+        "cpu_iowait_cores_mean",
+        "cpu_iowait_cores_p95",
+        "cpu_iowait_cores_max"
+      ]
+    },
+    {
+      "column": "cpu_steal_cores",
+      "aggregates": [
+        "min",
+        "mean",
+        "p95",
+        "max"
+      ],
+      "total_name": null,
+      "names": [
+        "cpu_steal_cores_min",
+        "cpu_steal_cores_mean",
+        "cpu_steal_cores_p95",
+        "cpu_steal_cores_max"
+      ]
+    },
+    {
+      "column": "cpu_core_util_min",
+      "aggregates": [
+        "min",
+        "mean",
+        "p95",
+        "max"
+      ],
+      "total_name": null,
+      "names": [
+        "cpu_core_util_min_min",
+        "cpu_core_util_min_mean",
+        "cpu_core_util_min_p95",
+        "cpu_core_util_min_max"
+      ]
+    },
+    {
+      "column": "cpu_core_util_p50",
+      "aggregates": [
+        "min",
+        "mean",
+        "p95",
+        "max"
+      ],
+      "total_name": null,
+      "names": [
+        "cpu_core_util_p50_min",
+        "cpu_core_util_p50_mean",
+        "cpu_core_util_p50_p95",
+        "cpu_core_util_p50_max"
+      ]
+    },
+    {
+      "column": "cpu_core_util_max",
+      "aggregates": [
+        "min",
+        "mean",
+        "p95",
+        "max"
+      ],
+      "total_name": null,
+      "names": [
+        "cpu_core_util_max_min",
+        "cpu_core_util_max_mean",
+        "cpu_core_util_max_p95",
+        "cpu_core_util_max_max"
+      ]
+    },
+    {
+      "column": "cpu_active_cores",
+      "aggregates": [
+        "min",
+        "mean",
+        "p95",
+        "max"
+      ],
+      "total_name": null,
+      "names": [
+        "cpu_active_cores_min",
+        "cpu_active_cores_mean",
+        "cpu_active_cores_p95",
+        "cpu_active_cores_max"
+      ]
+    },
+    {
+      "column": "load1",
+      "aggregates": [
+        "min",
+        "mean",
+        "p95",
+        "max"
+      ],
+      "total_name": null,
+      "names": [
+        "load1_min",
+        "load1_mean",
+        "load1_p95",
+        "load1_max"
+      ]
+    },
+    {
+      "column": "procs_running",
+      "aggregates": [
+        "min",
+        "mean",
+        "p95",
+        "max"
+      ],
+      "total_name": null,
+      "names": [
+        "procs_running_min",
+        "procs_running_mean",
+        "procs_running_p95",
+        "procs_running_max"
+      ]
+    },
+    {
+      "column": "procs_blocked",
+      "aggregates": [
+        "min",
+        "mean",
+        "p95",
+        "max"
+      ],
+      "total_name": null,
+      "names": [
+        "procs_blocked_min",
+        "procs_blocked_mean",
+        "procs_blocked_p95",
+        "procs_blocked_max"
+      ]
+    },
+    {
+      "column": "mem_used_bytes",
+      "aggregates": [
+        "min",
+        "mean",
+        "p95",
+        "max"
+      ],
+      "total_name": null,
+      "names": [
+        "mem_used_bytes_min",
+        "mem_used_bytes_mean",
+        "mem_used_bytes_p95",
+        "mem_used_bytes_max"
+      ]
+    },
+    {
+      "column": "mem_available_bytes",
+      "aggregates": [
+        "min",
+        "mean",
+        "p95",
+        "max"
+      ],
+      "total_name": null,
+      "names": [
+        "mem_available_bytes_min",
+        "mem_available_bytes_mean",
+        "mem_available_bytes_p95",
+        "mem_available_bytes_max"
+      ]
+    },
+    {
+      "column": "mem_anon_bytes",
+      "aggregates": [
+        "min",
+        "mean",
+        "p95",
+        "max"
+      ],
+      "total_name": null,
+      "names": [
+        "mem_anon_bytes_min",
+        "mem_anon_bytes_mean",
+        "mem_anon_bytes_p95",
+        "mem_anon_bytes_max"
+      ]
+    },
+    {
+      "column": "mem_cached_bytes",
+      "aggregates": [
+        "min",
+        "mean",
+        "p95",
+        "max"
+      ],
+      "total_name": null,
+      "names": [
+        "mem_cached_bytes_min",
+        "mem_cached_bytes_mean",
+        "mem_cached_bytes_p95",
+        "mem_cached_bytes_max"
+      ]
+    },
+    {
+      "column": "mem_shmem_bytes",
+      "aggregates": [
+        "min",
+        "mean",
+        "p95",
+        "max"
+      ],
+      "total_name": null,
+      "names": [
+        "mem_shmem_bytes_min",
+        "mem_shmem_bytes_mean",
+        "mem_shmem_bytes_p95",
+        "mem_shmem_bytes_max"
+      ]
+    },
+    {
+      "column": "mem_dirty_bytes",
+      "aggregates": [
+        "min",
+        "mean",
+        "p95",
+        "max"
+      ],
+      "total_name": null,
+      "names": [
+        "mem_dirty_bytes_min",
+        "mem_dirty_bytes_mean",
+        "mem_dirty_bytes_p95",
+        "mem_dirty_bytes_max"
+      ]
+    },
+    {
+      "column": "mem_writeback_bytes",
+      "aggregates": [
+        "min",
+        "mean",
+        "p95",
+        "max"
+      ],
+      "total_name": null,
+      "names": [
+        "mem_writeback_bytes_min",
+        "mem_writeback_bytes_mean",
+        "mem_writeback_bytes_p95",
+        "mem_writeback_bytes_max"
+      ]
+    },
+    {
+      "column": "mem_slab_bytes",
+      "aggregates": [
+        "min",
+        "mean",
+        "p95",
+        "max"
+      ],
+      "total_name": null,
+      "names": [
+        "mem_slab_bytes_min",
+        "mem_slab_bytes_mean",
+        "mem_slab_bytes_p95",
+        "mem_slab_bytes_max"
+      ]
+    },
+    {
+      "column": "swap_used_bytes",
+      "aggregates": [
+        "min",
+        "mean",
+        "p95",
+        "max"
+      ],
+      "total_name": null,
+      "names": [
+        "swap_used_bytes_min",
+        "swap_used_bytes_mean",
+        "swap_used_bytes_p95",
+        "swap_used_bytes_max"
+      ]
+    },
+    {
+      "column": "major_faults_per_s",
+      "aggregates": [
+        "mean",
+        "p95",
+        "max",
+        "total"
+      ],
+      "total_name": "major_faults_total",
+      "names": [
+        "major_faults_per_s_mean",
+        "major_faults_per_s_p95",
+        "major_faults_per_s_max",
+        "major_faults_total"
+      ]
+    },
+    {
+      "column": "oom_kills",
+      "aggregates": [
+        "max"
+      ],
+      "total_name": null,
+      "names": [
+        "oom_kills_max"
+      ]
+    },
+    {
+      "column": "job_cpu_cores",
+      "aggregates": [
+        "min",
+        "mean",
+        "p95",
+        "max"
+      ],
+      "total_name": null,
+      "names": [
+        "job_cpu_cores_min",
+        "job_cpu_cores_mean",
+        "job_cpu_cores_p95",
+        "job_cpu_cores_max"
+      ]
+    },
+    {
+      "column": "job_mem_bytes",
+      "aggregates": [
+        "min",
+        "mean",
+        "p95",
+        "max"
+      ],
+      "total_name": null,
+      "names": [
+        "job_mem_bytes_min",
+        "job_mem_bytes_mean",
+        "job_mem_bytes_p95",
+        "job_mem_bytes_max"
+      ]
+    },
+    {
+      "column": "job_mem_anon_bytes",
+      "aggregates": [
+        "min",
+        "mean",
+        "p95",
+        "max"
+      ],
+      "total_name": null,
+      "names": [
+        "job_mem_anon_bytes_min",
+        "job_mem_anon_bytes_mean",
+        "job_mem_anon_bytes_p95",
+        "job_mem_anon_bytes_max"
+      ]
+    },
+    {
+      "column": "job_mem_file_bytes",
+      "aggregates": [
+        "min",
+        "mean",
+        "p95",
+        "max"
+      ],
+      "total_name": null,
+      "names": [
+        "job_mem_file_bytes_min",
+        "job_mem_file_bytes_mean",
+        "job_mem_file_bytes_p95",
+        "job_mem_file_bytes_max"
+      ]
+    },
+    {
+      "column": "job_mem_shmem_bytes",
+      "aggregates": [
+        "min",
+        "mean",
+        "p95",
+        "max"
+      ],
+      "total_name": null,
+      "names": [
+        "job_mem_shmem_bytes_min",
+        "job_mem_shmem_bytes_mean",
+        "job_mem_shmem_bytes_p95",
+        "job_mem_shmem_bytes_max"
+      ]
+    },
+    {
+      "column": "job_mem_peak_bytes",
+      "aggregates": [
+        "max"
+      ],
+      "total_name": null,
+      "names": [
+        "job_mem_peak_bytes_max"
+      ]
+    },
+    {
+      "column": "job_pids",
+      "aggregates": [
+        "min",
+        "mean",
+        "p95",
+        "max"
+      ],
+      "total_name": null,
+      "names": [
+        "job_pids_min",
+        "job_pids_mean",
+        "job_pids_p95",
+        "job_pids_max"
+      ]
+    },
+    {
+      "column": "job_oom_kills",
+      "aggregates": [
+        "max"
+      ],
+      "total_name": null,
+      "names": [
+        "job_oom_kills_max"
+      ]
+    },
+    {
+      "column": "psi_cpu_some",
+      "aggregates": [
+        "min",
+        "mean",
+        "p95",
+        "max"
+      ],
+      "total_name": null,
+      "names": [
+        "psi_cpu_some_min",
+        "psi_cpu_some_mean",
+        "psi_cpu_some_p95",
+        "psi_cpu_some_max"
+      ]
+    },
+    {
+      "column": "psi_mem_some",
+      "aggregates": [
+        "min",
+        "mean",
+        "p95",
+        "max"
+      ],
+      "total_name": null,
+      "names": [
+        "psi_mem_some_min",
+        "psi_mem_some_mean",
+        "psi_mem_some_p95",
+        "psi_mem_some_max"
+      ]
+    },
+    {
+      "column": "psi_mem_full",
+      "aggregates": [
+        "min",
+        "mean",
+        "p95",
+        "max"
+      ],
+      "total_name": null,
+      "names": [
+        "psi_mem_full_min",
+        "psi_mem_full_mean",
+        "psi_mem_full_p95",
+        "psi_mem_full_max"
+      ]
+    },
+    {
+      "column": "psi_io_some",
+      "aggregates": [
+        "min",
+        "mean",
+        "p95",
+        "max"
+      ],
+      "total_name": null,
+      "names": [
+        "psi_io_some_min",
+        "psi_io_some_mean",
+        "psi_io_some_p95",
+        "psi_io_some_max"
+      ]
+    },
+    {
+      "column": "psi_io_full",
+      "aggregates": [
+        "min",
+        "mean",
+        "p95",
+        "max"
+      ],
+      "total_name": null,
+      "names": [
+        "psi_io_full_min",
+        "psi_io_full_mean",
+        "psi_io_full_p95",
+        "psi_io_full_max"
+      ]
+    },
+    {
+      "column": "disk_read_bytes_per_s",
+      "aggregates": [
+        "mean",
+        "p95",
+        "max",
+        "total"
+      ],
+      "total_name": "disk_read_bytes_total",
+      "names": [
+        "disk_read_bytes_per_s_mean",
+        "disk_read_bytes_per_s_p95",
+        "disk_read_bytes_per_s_max",
+        "disk_read_bytes_total"
+      ]
+    },
+    {
+      "column": "disk_write_bytes_per_s",
+      "aggregates": [
+        "mean",
+        "p95",
+        "max",
+        "total"
+      ],
+      "total_name": "disk_write_bytes_total",
+      "names": [
+        "disk_write_bytes_per_s_mean",
+        "disk_write_bytes_per_s_p95",
+        "disk_write_bytes_per_s_max",
+        "disk_write_bytes_total"
+      ]
+    },
+    {
+      "column": "disk_busy_max",
+      "aggregates": [
+        "min",
+        "mean",
+        "p95",
+        "max"
+      ],
+      "total_name": null,
+      "names": [
+        "disk_busy_max_min",
+        "disk_busy_max_mean",
+        "disk_busy_max_p95",
+        "disk_busy_max_max"
+      ]
+    },
+    {
+      "column": "nfs_read_bytes_per_s",
+      "aggregates": [
+        "mean",
+        "p95",
+        "max",
+        "total"
+      ],
+      "total_name": "nfs_read_bytes_total",
+      "names": [
+        "nfs_read_bytes_per_s_mean",
+        "nfs_read_bytes_per_s_p95",
+        "nfs_read_bytes_per_s_max",
+        "nfs_read_bytes_total"
+      ]
+    },
+    {
+      "column": "nfs_write_bytes_per_s",
+      "aggregates": [
+        "mean",
+        "p95",
+        "max",
+        "total"
+      ],
+      "total_name": "nfs_write_bytes_total",
+      "names": [
+        "nfs_write_bytes_per_s_mean",
+        "nfs_write_bytes_per_s_p95",
+        "nfs_write_bytes_per_s_max",
+        "nfs_write_bytes_total"
+      ]
+    },
+    {
+      "column": "nfs_server_read_bytes_per_s",
+      "aggregates": [
+        "mean",
+        "p95",
+        "max",
+        "total"
+      ],
+      "total_name": "nfs_server_read_bytes_total",
+      "names": [
+        "nfs_server_read_bytes_per_s_mean",
+        "nfs_server_read_bytes_per_s_p95",
+        "nfs_server_read_bytes_per_s_max",
+        "nfs_server_read_bytes_total"
+      ]
+    },
+    {
+      "column": "nfs_server_write_bytes_per_s",
+      "aggregates": [
+        "mean",
+        "p95",
+        "max",
+        "total"
+      ],
+      "total_name": "nfs_server_write_bytes_total",
+      "names": [
+        "nfs_server_write_bytes_per_s_mean",
+        "nfs_server_write_bytes_per_s_p95",
+        "nfs_server_write_bytes_per_s_max",
+        "nfs_server_write_bytes_total"
+      ]
+    },
+    {
+      "column": "nfs_read_ops_per_s",
+      "aggregates": [
+        "mean",
+        "p95",
+        "max",
+        "total"
+      ],
+      "total_name": "nfs_read_ops_total",
+      "names": [
+        "nfs_read_ops_per_s_mean",
+        "nfs_read_ops_per_s_p95",
+        "nfs_read_ops_per_s_max",
+        "nfs_read_ops_total"
+      ]
+    },
+    {
+      "column": "nfs_write_ops_per_s",
+      "aggregates": [
+        "mean",
+        "p95",
+        "max",
+        "total"
+      ],
+      "total_name": "nfs_write_ops_total",
+      "names": [
+        "nfs_write_ops_per_s_mean",
+        "nfs_write_ops_per_s_p95",
+        "nfs_write_ops_per_s_max",
+        "nfs_write_ops_total"
+      ]
+    },
+    {
+      "column": "nfs_ops_per_s",
+      "aggregates": [
+        "mean",
+        "p95",
+        "max",
+        "total"
+      ],
+      "total_name": "nfs_ops_total",
+      "names": [
+        "nfs_ops_per_s_mean",
+        "nfs_ops_per_s_p95",
+        "nfs_ops_per_s_max",
+        "nfs_ops_total"
+      ]
+    },
+    {
+      "column": "nfs_read_rtt_ms",
+      "aggregates": [
+        "min",
+        "p95",
+        "max"
+      ],
+      "total_name": null,
+      "names": [
+        "nfs_read_rtt_ms_min",
+        "nfs_read_rtt_ms_p95",
+        "nfs_read_rtt_ms_max"
+      ]
+    },
+    {
+      "column": "nfs_write_rtt_ms",
+      "aggregates": [
+        "min",
+        "p95",
+        "max"
+      ],
+      "total_name": null,
+      "names": [
+        "nfs_write_rtt_ms_min",
+        "nfs_write_rtt_ms_p95",
+        "nfs_write_rtt_ms_max"
+      ]
+    },
+    {
+      "column": "net_rx_bytes_per_s",
+      "aggregates": [
+        "mean",
+        "p95",
+        "max",
+        "total"
+      ],
+      "total_name": "net_rx_bytes_total",
+      "names": [
+        "net_rx_bytes_per_s_mean",
+        "net_rx_bytes_per_s_p95",
+        "net_rx_bytes_per_s_max",
+        "net_rx_bytes_total"
+      ]
+    },
+    {
+      "column": "net_tx_bytes_per_s",
+      "aggregates": [
+        "mean",
+        "p95",
+        "max",
+        "total"
+      ],
+      "total_name": "net_tx_bytes_total",
+      "names": [
+        "net_tx_bytes_per_s_mean",
+        "net_tx_bytes_per_s_p95",
+        "net_tx_bytes_per_s_max",
+        "net_tx_bytes_total"
+      ]
+    },
+    {
+      "column": "net_errors_per_s",
+      "aggregates": [
+        "mean",
+        "p95",
+        "max",
+        "total"
+      ],
+      "total_name": "net_errors_total",
+      "names": [
+        "net_errors_per_s_mean",
+        "net_errors_per_s_p95",
+        "net_errors_per_s_max",
+        "net_errors_total"
+      ]
+    },
+    {
+      "column": "efa_rx_bytes_per_s",
+      "aggregates": [
+        "mean",
+        "p95",
+        "max",
+        "total"
+      ],
+      "total_name": "efa_rx_bytes_total",
+      "names": [
+        "efa_rx_bytes_per_s_mean",
+        "efa_rx_bytes_per_s_p95",
+        "efa_rx_bytes_per_s_max",
+        "efa_rx_bytes_total"
+      ]
+    },
+    {
+      "column": "efa_tx_bytes_per_s",
+      "aggregates": [
+        "mean",
+        "p95",
+        "max",
+        "total"
+      ],
+      "total_name": "efa_tx_bytes_total",
+      "names": [
+        "efa_tx_bytes_per_s_mean",
+        "efa_tx_bytes_per_s_p95",
+        "efa_tx_bytes_per_s_max",
+        "efa_tx_bytes_total"
+      ]
+    }
+  ],
+  "workspace_stats": [
+    {
+      "column": "apparent_bytes",
+      "aggregates": [
+        "max"
+      ],
+      "total_name": null,
+      "names": [
+        "apparent_bytes_max"
+      ]
+    },
+    {
+      "column": "allocated_bytes",
+      "aggregates": [
+        "max"
+      ],
+      "total_name": null,
+      "names": [
+        "allocated_bytes_max"
+      ]
+    },
+    {
+      "column": "files",
+      "aggregates": [
+        "max"
+      ],
+      "total_name": null,
+      "names": [
+        "files_max"
+      ]
+    },
+    {
+      "column": "dirs",
+      "aggregates": [
+        "max"
+      ],
+      "total_name": null,
+      "names": [
+        "dirs_max"
+      ]
+    },
+    {
+      "column": "walk_s",
+      "aggregates": [
+        "max"
+      ],
+      "total_name": null,
+      "names": [
+        "walk_s_max"
+      ]
+    },
+    {
+      "column": "fs_used_bytes",
+      "aggregates": [
+        "max"
+      ],
+      "total_name": null,
+      "names": [
+        "fs_used_bytes_max"
+      ]
+    },
+    {
+      "column": "fs_avail_bytes",
+      "aggregates": [
+        "min"
+      ],
+      "total_name": null,
+      "names": [
+        "fs_avail_bytes_min"
+      ]
+    }
+  ],
+  "headline_key_prefix": "telemetry.",
+  "headline_scopes": [
+    "model",
+    "finalize",
+    "workspace"
+  ],
+  "headline_poolings": [
+    {
+      "name": "node_rows",
+      "meaning": "the statistic over the rows of every node and restart pooled together, so the value is a per-node figure: a mean is the mean of one node and a max is the worst node"
+    },
+    {
+      "name": "sum_nodes",
+      "meaning": "the sum over the rows of every node and restart, a whole-job figure"
+    },
+    {
+      "name": "walks",
+      "meaning": "the statistic over the walks of the reported jobs"
+    }
+  ],
+  "headline_formats": [
+    {
+      "name": "bytes",
+      "meaning": "an integer number of bytes, rounded half to even, written as plain digits"
+    },
+    {
+      "name": "cores",
+      "meaning": "a fixed-point number with 2 decimals, no sign and no exponent"
+    },
+    {
+      "name": "fraction",
+      "meaning": "a fixed-point number with 4 decimals, no sign and no exponent"
+    }
+  ],
+  "headline": [
+    {
+      "scope": "model",
+      "source": "samples.parquet",
+      "column": "job_mem_peak_bytes",
+      "aggregate": "max",
+      "key": "model.job_mem_peak_bytes_max",
+      "pooling": "node_rows",
+      "fmt": "bytes"
+    },
+    {
+      "scope": "model",
+      "source": "samples.parquet",
+      "column": "mem_available_bytes",
+      "aggregate": "min",
+      "key": "model.mem_available_bytes_min",
+      "pooling": "node_rows",
+      "fmt": "bytes"
+    },
+    {
+      "scope": "model",
+      "source": "samples.parquet",
+      "column": "cpu_busy_cores",
+      "aggregate": "mean",
+      "key": "model.cpu_busy_cores_mean",
+      "pooling": "node_rows",
+      "fmt": "cores"
+    },
+    {
+      "scope": "model",
+      "source": "samples.parquet",
+      "column": "cpu_busy_cores",
+      "aggregate": "p95",
+      "key": "model.cpu_busy_cores_p95",
+      "pooling": "node_rows",
+      "fmt": "cores"
+    },
+    {
+      "scope": "model",
+      "source": "samples.parquet",
+      "column": "cpu_util",
+      "aggregate": "mean",
+      "key": "model.cpu_util_mean",
+      "pooling": "node_rows",
+      "fmt": "fraction"
+    },
+    {
+      "scope": "model",
+      "source": "samples.parquet",
+      "column": "nfs_read_bytes_per_s",
+      "aggregate": "total",
+      "key": "model.nfs_read_bytes_total",
+      "pooling": "sum_nodes",
+      "fmt": "bytes"
+    },
+    {
+      "scope": "model",
+      "source": "samples.parquet",
+      "column": "nfs_write_bytes_per_s",
+      "aggregate": "total",
+      "key": "model.nfs_write_bytes_total",
+      "pooling": "sum_nodes",
+      "fmt": "bytes"
+    },
+    {
+      "scope": "model",
+      "source": "samples.parquet",
+      "column": "disk_read_bytes_per_s",
+      "aggregate": "total",
+      "key": "model.disk_read_bytes_total",
+      "pooling": "sum_nodes",
+      "fmt": "bytes"
+    },
+    {
+      "scope": "model",
+      "source": "samples.parquet",
+      "column": "disk_write_bytes_per_s",
+      "aggregate": "total",
+      "key": "model.disk_write_bytes_total",
+      "pooling": "sum_nodes",
+      "fmt": "bytes"
+    },
+    {
+      "scope": "finalize",
+      "source": "samples.parquet",
+      "column": "job_mem_peak_bytes",
+      "aggregate": "max",
+      "key": "finalize.job_mem_peak_bytes_max",
+      "pooling": "node_rows",
+      "fmt": "bytes"
+    },
+    {
+      "scope": "finalize",
+      "source": "samples.parquet",
+      "column": "mem_available_bytes",
+      "aggregate": "min",
+      "key": "finalize.mem_available_bytes_min",
+      "pooling": "node_rows",
+      "fmt": "bytes"
+    },
+    {
+      "scope": "finalize",
+      "source": "samples.parquet",
+      "column": "cpu_busy_cores",
+      "aggregate": "mean",
+      "key": "finalize.cpu_busy_cores_mean",
+      "pooling": "node_rows",
+      "fmt": "cores"
+    },
+    {
+      "scope": "finalize",
+      "source": "samples.parquet",
+      "column": "cpu_busy_cores",
+      "aggregate": "p95",
+      "key": "finalize.cpu_busy_cores_p95",
+      "pooling": "node_rows",
+      "fmt": "cores"
+    },
+    {
+      "scope": "finalize",
+      "source": "samples.parquet",
+      "column": "cpu_util",
+      "aggregate": "mean",
+      "key": "finalize.cpu_util_mean",
+      "pooling": "node_rows",
+      "fmt": "fraction"
+    },
+    {
+      "scope": "finalize",
+      "source": "samples.parquet",
+      "column": "nfs_read_bytes_per_s",
+      "aggregate": "total",
+      "key": "finalize.nfs_read_bytes_total",
+      "pooling": "sum_nodes",
+      "fmt": "bytes"
+    },
+    {
+      "scope": "finalize",
+      "source": "samples.parquet",
+      "column": "nfs_write_bytes_per_s",
+      "aggregate": "total",
+      "key": "finalize.nfs_write_bytes_total",
+      "pooling": "sum_nodes",
+      "fmt": "bytes"
+    },
+    {
+      "scope": "finalize",
+      "source": "samples.parquet",
+      "column": "disk_read_bytes_per_s",
+      "aggregate": "total",
+      "key": "finalize.disk_read_bytes_total",
+      "pooling": "sum_nodes",
+      "fmt": "bytes"
+    },
+    {
+      "scope": "finalize",
+      "source": "samples.parquet",
+      "column": "disk_write_bytes_per_s",
+      "aggregate": "total",
+      "key": "finalize.disk_write_bytes_total",
+      "pooling": "sum_nodes",
+      "fmt": "bytes"
+    },
+    {
+      "scope": "workspace",
+      "source": "workspace.parquet",
+      "column": "allocated_bytes",
+      "aggregate": "max",
+      "key": "workspace.allocated_bytes_max",
+      "pooling": "walks",
+      "fmt": "bytes"
+    }
+  ],
+  "warning_codes": [
+    {
+      "code": "bad_header",
+      "meaning": "the file has no valid header line, and the file is skipped"
+    },
+    {
+      "code": "truncated_tail",
+      "meaning": "the last line has no newline and is dropped"
+    },
+    {
+      "code": "bad_line",
+      "meaning": "a line is not ASCII JSON within the line limit and is dropped"
+    },
+    {
+      "code": "bad_record",
+      "meaning": "a JSON line breaks the record rules of its kind and is dropped"
+    },
+    {
+      "code": "identity_mismatch",
+      "meaning": "a sample or walk names another attempt than its header and is dropped"
+    },
+    {
+      "code": "non_monotonic_ts",
+      "meaning": "a sample or walk ts is not after the previous kept one and is dropped"
+    },
+    {
+      "code": "sampler_error",
+      "meaning": "an error line written by the sampler"
+    },
+    {
+      "code": "missing_node",
+      "meaning": "a node of an attempt has no valid staging file"
+    },
+    {
+      "code": "warnings_capped",
+      "meaning": "the warning list reached WARNINGS_CAP, and the count holds the warning occurrences left out of the list"
+    }
+  ],
+  "warnings_cap": 500
+}

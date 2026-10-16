@@ -6,7 +6,6 @@ from __future__ import annotations
 import hashlib
 import json
 import logging
-import os
 import re
 import subprocess
 import sys
@@ -23,7 +22,6 @@ from hpc_model_utils.core.launch import (
     Launcher,
     LaunchSpec,
     Resources,
-    TelemetryConfig,
     Toolchain,
     render_model_script,
 )
@@ -43,32 +41,18 @@ from tests.support.decks import (
     decomp_workspace,
     input_zip,
 )
+from tests.support.launch_helpers import (
+    GOLDEN_TELEMETRY,
+    GOLDEN_TOOLS,
+    SBATCH_GOLDEN_DIR,
+    assert_matches_golden,
+    assert_sidecar_after_rm_exit,
+)
 from tests.support.object_store import RecordingObjectStore
 from tests.support.reporter import RecordingReporter
 
-_REGEN_ENV = "HPCMU_REGEN_GOLDENS"
-_GOLDEN_PATH = (
-    Path(__file__).resolve().parents[3]
-    / "goldens"
-    / "v2"
-    / "sbatch"
-    / "decomp_model.sbatch"
-)
+_GOLDEN_PATH = SBATCH_GOLDEN_DIR / "decomp_model.sbatch"
 _ON_GOLDEN_PATH = _GOLDEN_PATH.with_name("decomp_model-telemetry.sbatch")
-_RM_EXIT_GOLDEN_LINE = "rm -f <WS>/.hpcmu/jobs/model.exit"
-_SIDECAR_GOLDEN_LINE = (
-    'srun --overlap --nodes="${SLURM_JOB_NUM_NODES:-?}" '
-    '--ntasks="${SLURM_JOB_NUM_NODES:-?}" --ntasks-per-node=1 '
-    "--cpus-per-task=1 --cpu-bind=none --mpi=none --kill-on-bad-exit=0 "
-    "--input=none --wait=0 --job-name=hpcmu-telemetry "
-    "--output=<WS>/.hpcmu/telemetry/model-%j-r"
-    '"${SLURM_RESTART_COUNT:-0}"-%t.log /opt/hpcmu/python -I -m '
-    "hpc_model_utils.infra.telemetry.sampler --staging "
-    "<WS>/.hpcmu/telemetry --phase model --workspace <WS> --interval 5 "
-    "--workspace-interval 60 --tool-version 9.9.9 > "
-    '<WS>/.hpcmu/telemetry/model-"${SLURM_JOB_ID:-?}"-r'
-    '"${SLURM_RESTART_COUNT:-0}"-srun.log 2>&1 & disown'
-)
 _PROJECTIONS_PATH = (
     Path(__file__).resolve().parents[3]
     / "goldens"
@@ -365,34 +349,10 @@ def _decomp_golden_case(
     root = tmp_path / "study-decomp"
     root.mkdir()
     ws = Workspace.at(root)
-    tools = Toolchain(
-        mpich_bin=Path("/opt/mpich/bin"),
-        slurm_bin=Path("/opt/slurm/bin"),
-        cli_bin=Path("/opt/hpcmu/bin"),
-    )
     res = Resources(
         queue="batch", cores=64, max_cores_per_node=32, time_limit_hours=24
     )
-    return ws, DecompPlugin().launch(ws, res), res, tools
-
-
-def _assert_matches_golden(
-    rendered: str, ws: Workspace, golden_path: Path, tmp_path: Path
-) -> None:
-    normalized = rendered.replace(str(ws.root), "<WS>")
-    if os.environ.get(_REGEN_ENV) == "1":
-        golden_path.parent.mkdir(parents=True, exist_ok=True)
-        golden_path.write_text(normalized, encoding="utf-8")
-        pytest.fail(
-            f"{_REGEN_ENV}=1: regenerated {golden_path}; "
-            "re-run without it to verify"
-        )
-
-    assert normalized == golden_path.read_text(encoding="utf-8")
-
-    script_path = tmp_path / "golden-check.sbatch"
-    script_path.write_text(rendered, encoding="utf-8")
-    subprocess.run(["bash", "-n", str(script_path)], check=True)
+    return ws, DecompPlugin().launch(ws, res), res, GOLDEN_TOOLS
 
 
 def test_render_model_script_decomp_launch_matches_golden(
@@ -401,7 +361,7 @@ def test_render_model_script_decomp_launch_matches_golden(
     ws, spec, res, tools = _decomp_golden_case(tmp_path)
     rendered = render_model_script(ws, spec, res, tools)
 
-    _assert_matches_golden(rendered, ws, _GOLDEN_PATH, tmp_path)
+    assert_matches_golden(rendered, ws, _GOLDEN_PATH, tmp_path)
     assert "#SBATCH --ntasks=64" in rendered
     assert "#SBATCH --ntasks-per-node=32" in rendered
     assert "#SBATCH --cpus-per-task=1" in rendered
@@ -412,17 +372,12 @@ def test_render_model_script_decomp_launch_telemetry_matches_golden(
     tmp_path: Path,
 ) -> None:
     ws, spec, res, tools = _decomp_golden_case(tmp_path)
-    telemetry = TelemetryConfig(
-        enabled=True, interval=5, workspace_interval=60, tool_version="9.9.9"
+    rendered = render_model_script(
+        ws, spec, res, tools, telemetry=GOLDEN_TELEMETRY
     )
-    rendered = render_model_script(ws, spec, res, tools, telemetry=telemetry)
 
-    _assert_matches_golden(rendered, ws, _ON_GOLDEN_PATH, tmp_path)
-    off_lines = _GOLDEN_PATH.read_text(encoding="utf-8").split("\n")
-    on_lines = _ON_GOLDEN_PATH.read_text(encoding="utf-8").split("\n")
-    rm_index = off_lines.index(_RM_EXIT_GOLDEN_LINE)
-    assert on_lines[rm_index + 1] == _SIDECAR_GOLDEN_LINE
-    assert on_lines[: rm_index + 1] + on_lines[rm_index + 2 :] == off_lines
+    assert_matches_golden(rendered, ws, _ON_GOLDEN_PATH, tmp_path)
+    assert_sidecar_after_rm_exit(_ON_GOLDEN_PATH, _GOLDEN_PATH)
 
 
 # -- prepare: writes nothing (R20, D1, R54) --------------------------------

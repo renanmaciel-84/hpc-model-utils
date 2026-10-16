@@ -57,8 +57,7 @@ def _kill_live_jobs(controller: FakeSlurm) -> None:
             with contextlib.suppress(ProcessLookupError, PermissionError):
                 os.kill(runner_pid, signal.SIGKILL)
             _wait_gone(runner_pid)
-        # `.get`: test_run_follow.py fabricates job records without the key.
-        for task in job.get("step_tasks", []):
+        for task in job["step_tasks"]:
             with contextlib.suppress(ProcessLookupError, PermissionError):
                 os.killpg(task["pid"], signal.SIGKILL)
             _wait_gone(task["pid"])

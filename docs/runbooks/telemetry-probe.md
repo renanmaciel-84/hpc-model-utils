@@ -22,8 +22,8 @@ id (F1-F16). Keep every output of this runbook under
 | `<user>` | the ModelOps SSH user, the account the prd jobs run as: the user of the ModelOps SSH connection that env `sshConnectionId` names |
 | `<partition>` | a model partition: env `queueNewave` or `queueDecomp` (the F6 partitions). Both scripts take the same one |
 | `<nodes>` | `2`, the node count both commands pass. T4, T5 and T7 are only meaningful across nodes |
-| `<mpich-path>` | env `mpichPath`, the MPICH that NEWAVE and DECOMP run with. It must ship Hydra's `bin/mpiexec` |
-| `<root-path>` | env `rootPath`, the workspace parent on the shared filesystem (F5, F15) |
+| `<mpich-path>` | the MPICH install prefix, which is env `mpichPath` without its final `/bin`. The probe checks `<mpich-path>/bin/mpiexec`, and a wrong value exits 2 before any job is submitted |
+| `<root-path>` | env `rootPath` without its trailing slash, the workspace parent on the shared filesystem (F5, F15). The T7 mountstats match compares the mount point with this value exactly, so a trailing slash silently drops the NFS mountstats rows |
 | `<capture-dir>` | a new directory under `<root-path>`, named by the operator. It must not exist yet |
 | `<private-plan-dir>` | the gitignored `plans/job-telemetry/` directory of the operator's workstation checkout of this repository |
 

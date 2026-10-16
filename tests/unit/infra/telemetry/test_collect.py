@@ -33,7 +33,6 @@ from hpc_model_utils.infra.telemetry.procfs import (
     PressureTotals,
     ProcStat,
     job_cgroup_paths,
-    parse_counter,
     parse_diskstats,
     parse_flat_keyed,
     parse_meminfo,
@@ -742,8 +741,8 @@ def _efa_reads(snapshot: int) -> dict[str, EfaCounters]:
     files = _files(snapshot)
     return {
         _EFA_PORT: EfaCounters(
-            parse_counter(files[f"{_EFA_PORT}/rx_bytes"]),
-            parse_counter(files[f"{_EFA_PORT}/tx_bytes"]),
+            parse_single_int(files[f"{_EFA_PORT}/rx_bytes"]),
+            parse_single_int(files[f"{_EFA_PORT}/tx_bytes"]),
         )
     }
 

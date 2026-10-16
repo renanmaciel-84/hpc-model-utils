@@ -166,19 +166,23 @@ def parse_meminfo(text: str) -> dict[str, int]:
     return result
 
 
+def _parse_key_value(text: str, what: str) -> dict[str, int]:
+    result: dict[str, int] = {}
+    for line in text.splitlines():
+        fields = line.split()
+        if len(fields) != 2:
+            raise ValueError(f"{what}: expected 'key value', got {line!r}")
+        result[fields[0]] = int(fields[1])
+    return result
+
+
 def parse_vmstat(text: str) -> dict[str, int]:
     """Parse `/proc/vmstat`.
 
     Raises `ValueError` for a line without exactly two fields or whose value
     is not an integer.
     """
-    result: dict[str, int] = {}
-    for line in text.splitlines():
-        fields = line.split()
-        if len(fields) != 2:
-            raise ValueError(f"vmstat: expected 'key value', got {line!r}")
-        result[fields[0]] = int(fields[1])
-    return result
+    return _parse_key_value(text, "vmstat")
 
 
 def parse_diskstats(text: str) -> dict[str, DiskCounters]:
@@ -317,11 +321,6 @@ def parse_nfs_counters(entry: MountEntry) -> NfsCounters:
     )
 
 
-def parse_counter(text: str) -> int:
-    """Parse a single-integer sysfs file; anything else raises `ValueError`."""
-    return int(text.strip())
-
-
 def read_efa_port(root: Path, port: str) -> EfaCounters:
     """Read `rx_bytes` and `tx_bytes` in the root-relative `port` directory.
 
@@ -329,8 +328,8 @@ def read_efa_port(root: Path, port: str) -> EfaCounters:
     propagate.
     """
     return EfaCounters(
-        parse_counter(read_text(root, f"{port}/rx_bytes")),
-        parse_counter(read_text(root, f"{port}/tx_bytes")),
+        parse_single_int(read_text(root, f"{port}/rx_bytes")),
+        parse_single_int(read_text(root, f"{port}/tx_bytes")),
     )
 
 
@@ -349,7 +348,7 @@ def list_whole_disks(root: Path) -> tuple[str, ...]:
     for entry in base.iterdir():
         if not (entry / "device").exists():
             continue
-        if (entry / "hidden").exists() and parse_counter(
+        if (entry / "hidden").exists() and parse_single_int(
             read_text(entry, "hidden")
         ):
             continue
@@ -438,21 +437,17 @@ def parse_flat_keyed(text: str) -> dict[str, int]:
     Raises `ValueError` for a line without exactly two fields or whose value
     is not an integer.
     """
-    result: dict[str, int] = {}
-    for line in text.splitlines():
-        fields = line.split()
-        if len(fields) != 2:
-            raise ValueError(f"cgroup file: expected 'key value', got {line!r}")
-        result[fields[0]] = int(fields[1])
-    return result
+    return _parse_key_value(text, "cgroup file")
 
 
 def parse_single_int(text: str) -> int:
-    """Parse `memory.current`, `memory.peak` or `pids.current`.
+    """Parse a file that holds one integer.
 
-    A value that is not an integer, such as `max`, raises `ValueError`.
+    Covers `memory.current`, `memory.peak` and `pids.current`, and the sysfs
+    counter files `rx_bytes`, `tx_bytes` and `hidden`. A value that is not an
+    integer, such as `max`, raises `ValueError`.
     """
-    return parse_counter(text)
+    return int(text.strip())
 
 
 def parse_pressure(text: str) -> PressureTotals:

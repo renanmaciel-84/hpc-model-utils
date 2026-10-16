@@ -14,7 +14,7 @@ platform. ModelOps starts one login-side command per workflow task. The
 commands fetch inputs from S3, prepare the deck, submit a model job and a
 finalize job, follow their logs, diagnose the outcome, and publish the
 artifacts back to S3. The tool reports progress to ModelOps by writing hook
-lines on standard output. The code is split into five layers plus the
+lines on standard output. The code is split into six layers plus the
 `deploy/modelops` operator tooling that applies the ModelOps definitions.
 
 ```mermaid
@@ -24,16 +24,19 @@ flowchart LR
     platform["platform<br/>hooks, stdio, encoding"]
     core["core<br/>plugin contract, lifecycle,<br/>state, diagnosis, outputs"]
     infra["infra<br/>S3, Slurm, shell, archives"]
+    telemetry["infra.telemetry<br/>sampler, staging, export"]
     deploy["deploy/modelops<br/>definitions, apply tool"]
 
     cli --> core
     cli --> platform
     cli --> models
     cli --> infra
+    cli --> telemetry
     platform --> core
     models --> core
     models --> infra
     core --> infra
+    core --> telemetry
     deploy -. "pins a released tag of" .-> cli
 ```
 
@@ -44,13 +47,14 @@ tool, never on its modules.
 
 ## Layers and import direction
 
-The package `src/hpc_model_utils/` has five layers with a fixed import
+The package `src/hpc_model_utils/` has six layers with a fixed import
 direction (ADR-002):
 
 | Layer | Directory | May import |
 | --- | --- | --- |
 | `infra` | `src/hpc_model_utils/infra/` | nothing in the package |
-| `core` | `src/hpc_model_utils/core/` | `infra` |
+| `infra.telemetry` | `src/hpc_model_utils/infra/telemetry/` | nothing in the package; the standard library only, except `export.py` |
+| `core` | `src/hpc_model_utils/core/` | `infra`, `infra.telemetry` |
 | `platform` | `src/hpc_model_utils/platform/` | `core` |
 | `models` | `src/hpc_model_utils/models/` | `core`, `infra` |
 | `cli` | `src/hpc_model_utils/cli/` | all of the above |
@@ -59,14 +63,25 @@ direction (ADR-002):
 and the registry lives in `src/hpc_model_utils/models/__init__.py::PLUGINS`.
 That is what keeps the engine model-agnostic.
 
-Two more rules are enforced by the same test,
+More rules are enforced by the same test,
 `tests/unit/test_import_direction.py::ALLOWED_EDGES` (the table above) and
 its companions in that file:
 
 - The literal `${CurrentExecution` may appear only in
   `src/hpc_model_utils/platform/modelops.py`. No other module writes a hook.
-- The `inewave` and `idecomp` libraries may be imported only where the test's
-  `RESTRICTED_IMPORTS` allows it, which is inside `models`.
+- Third-party and internal imports are limited by the test's
+  `RESTRICTED_IMPORTS`:
+  - `inewave` and `idecomp` only inside `models`;
+  - `pyarrow` only in `infra/telemetry/export.py`;
+  - `hpc_model_utils.infra.telemetry.export` is imported by no module, so the
+    export runs as a `python -I -m hpc_model_utils.infra.telemetry.export`
+    subprocess (ADR-073).
+- `TELEMETRY_TEST_ALLOWED_TOP_LEVEL` and its companion
+  `TELEMETRY_TEST_ALLOWED_PREFIXES` keep the unit tests in
+  `tests/unit/infra/telemetry/` on the standard library, `pytest`,
+  `hypothesis`, `pyarrow`, the telemetry package and their own test helpers.
+- `tests/unit/infra/telemetry/test_sampler_stdlib.py` proves that the sampler
+  runs on a bare interpreter (ADR-078).
 
 A change that breaks the direction fails `tests/unit/test_import_direction.py`
 before it reaches review.
@@ -271,8 +286,10 @@ sequenceDiagram
     Login->>Login: ingest finalize.json, save state.json
     Login-->>MO: job_id and status metadata hooks
     MO->>Login: result_upload
-    Login->>S3: archives, logs, status.modelops, run.json
+    Login->>Login: export telemetry (subprocess, at most 300 s)
+    Login->>S3: archives, logs, sintese, telemetry, status.modelops, run.json
     Login->>S3: metadata.modelops (last)
+    Login-->>MO: telemetry.* metadata hooks
     Login-->>MO: artifacts path hook, then terminal status hook
 ```
 
@@ -303,6 +320,20 @@ artifact, so a kill in the middle cannot leave an old success next to new
 files. On a successful publish, the artifacts-path hook and the terminal status
 hook are emitted once, after every upload has finished. Nothing already in the
 prefix is deleted.
+
+Telemetry adds these steps to the order (ADR-083, ADR-085):
+
+- `src/hpc_model_utils/core/telemetry.py::export_telemetry` runs the export
+  before the reuse pre-marker, with the timeout
+  `src/hpc_model_utils/core/telemetry.py::EXPORT_TIMEOUT_S`.
+- On success, `saidas/telemetry/<file>` is uploaded after `sintese/*` and
+  before `saidas/status.modelops`, and `saidas/run.json` lists the files.
+- A failed export, or nothing to export, is logged and skipped (R50); the
+  publish carries on unchanged.
+- A failed telemetry upload is a storage error, exit 4. It is the one
+  exception to "telemetry never changes the outcome" (ADR-084).
+- The `telemetry.*` metadata hooks come after every upload and before the
+  artifacts-path hook.
 
 ## Logs and the relay
 
@@ -342,6 +373,59 @@ To prove that a run lost or duplicated no line, run
 `deploy/modelops/check_relay.py` on the exported relayed output and the job
 logs. It is the completeness check for the relay; test fast-failing runs with
 it as well as long ones.
+
+The sampler's output never enters the job log (R80). To prove it, run
+`deploy/modelops/compare_job_logs.py`: it compares the job logs of a run with
+telemetry on and off, in a strict mode, and in a prd mode that masks the
+fields expected to differ (ADR-094).
+
+## Telemetry
+
+Telemetry samples the nodes of a run and publishes three files per run. This
+section covers where the code sits and what it touches. The file formats, the
+columns, the statistics, the `telemetry.*` metadata hooks and the
+`schema_version` policy are in [the telemetry contract](telemetry.md)
+(`docs/telemetry.md`); this page does not repeat them.
+
+- **The sidecar.** When telemetry is on,
+  `src/hpc_model_utils/core/launch.py` writes one `srun --overlap` line into
+  each job script. It starts one sampler task per node in the background and
+  ends in `& disown`. In the model script the line comes right after the
+  `rm -f` of `.hpcmu/jobs/model.exit`. In the finalize script it comes after
+  the guards and right before `exec`.
+- **The interpreter.** The sampler runs under `Toolchain.python_bin`, which is
+  `cli_bin.parent / "python"` (ADR-081), with `-I -m` (isolated mode,
+  module entry point).
+- **The sidecar's own logs.** Each task writes
+  `.hpcmu/telemetry/<phase>-%j-r<restart>-%t.log`. The srun client writes
+  `.hpcmu/telemetry/<phase>-<jobid>-r<restart>-srun.log`.
+- **Teardown.** The script has no stop block. Slurm's job-end teardown stops
+  the sidecar (ADR-061).
+- **Off means today's bytes.** With telemetry off, both scripts render exactly
+  the bytes they rendered before telemetry existed, and the sbatch goldens
+  prove it (ADR-062, ADR-082).
+- **Settings.** `src/hpc_model_utils/core/settings.py` reads three variables
+  on the login side. The job side never reads them; they reach it as sampler
+  arguments.
+
+| Variable | Values | Default |
+| --- | --- | --- |
+| `HPCMU_TELEMETRY` | `on` or `off` | `on` |
+| `HPCMU_TELEMETRY_INTERVAL` | 5 to 30 seconds | 5 |
+| `HPCMU_TELEMETRY_WORKSPACE_INTERVAL` | 60 to 3600 seconds | 60 |
+
+- **Staging and output.** `Workspace.telemetry_dir` is `.hpcmu/telemetry/`,
+  the staging area, where each node writes its own files for each attempt, so
+  no file has two writers. `Workspace.telemetry_outputs_dir` is
+  `.hpcmu/outputs/telemetry/`, where the export writes the files that publish
+  uploads (ADR-085). Both live under `.hpcmu/`, which `outputs.realize`
+  never archives.
+- **No plugin change.** The sidecar, the export and the publish step run for
+  every model, and a new plugin needs no telemetry code.
+
+The rule for outcomes (K1) is that telemetry never changes a run's status,
+exit code, relayed log or diagnosis. The one exception is a failed telemetry
+upload, which is a storage error, exit 4 (ADR-084).
 
 ## Workflows as code
 

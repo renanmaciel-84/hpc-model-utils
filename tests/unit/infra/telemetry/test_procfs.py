@@ -25,7 +25,6 @@ from hpc_model_utils.infra.telemetry.procfs import (
     list_efa_ports,
     list_physical_netdevs,
     list_whole_disks,
-    parse_counter,
     parse_cpu_model,
     parse_cpus_per_node,
     parse_diskstats,
@@ -302,9 +301,6 @@ def test_parse_meminfo_unitless_line_is_skipped() -> None:
             ValueError,
             "invalid literal",
         ),
-        (parse_counter, "x", ValueError, "invalid literal"),
-        (parse_counter, "", ValueError, "invalid literal"),
-        (parse_counter, "1.5\n", ValueError, "invalid literal"),
         (
             parse_mountstats,
             "device nfs mounted on /m\n",
@@ -601,13 +597,6 @@ def test_read_efa_port_non_integer_counter_raises_value_error(
     with pytest.raises(ValueError, match="invalid literal") as excinfo:
         read_efa_port(tmp_path, _SYNTHETIC_PORT)
     assert isinstance(excinfo.value, COLLECTOR_ERRORS)
-
-
-@pytest.mark.parametrize(
-    ("text", "value"), [("0\n", 0), ("1", 1), (" 42 \n", 42)]
-)
-def test_parse_counter_integer_text_returns_int(text: str, value: int) -> None:
-    assert parse_counter(text) == value
 
 
 def test_parse_net_dev_no_space_after_colon_splits_at_the_colon() -> None:
@@ -1259,7 +1248,33 @@ def test_parse_flat_keyed_malformed_line_raises_value_error(
 
 
 @pytest.mark.parametrize(
-    ("text", "value"), [("8100000000\n", 8100000000), ("0", 0), (" 42 \n", 42)]
+    ("parser", "text", "message"),
+    [
+        (parse_vmstat, "a\n", "vmstat: expected 'key value', got 'a'"),
+        (
+            parse_flat_keyed,
+            "a b c\n",
+            "cgroup file: expected 'key value', got 'a b c'",
+        ),
+    ],
+)
+def test_parse_vmstat_and_flat_keyed_malformed_line_message_is_exact(
+    parser: Callable[[str], dict[str, int]], text: str, message: str
+) -> None:
+    with pytest.raises(ValueError) as excinfo:
+        parser(text)
+    assert str(excinfo.value) == message
+
+
+@pytest.mark.parametrize(
+    ("text", "value"),
+    [
+        ("8100000000\n", 8100000000),
+        ("0", 0),
+        (" 42 \n", 42),
+        ("0\n", 0),
+        ("1", 1),
+    ],
 )
 def test_parse_single_int_integer_text_returns_int(
     text: str, value: int
@@ -1267,7 +1282,9 @@ def test_parse_single_int_integer_text_returns_int(
     assert parse_single_int(text) == value
 
 
-@pytest.mark.parametrize("text", ["max\n", "", "\n", "1 2\n", "1.5\n", "x\n"])
+@pytest.mark.parametrize(
+    "text", ["max\n", "", "\n", "1 2\n", "1.5\n", "x\n", "x"]
+)
 def test_parse_single_int_non_integer_raises_value_error(text: str) -> None:
     with pytest.raises(ValueError, match="invalid literal") as excinfo:
         parse_single_int(text)

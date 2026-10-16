@@ -7,7 +7,6 @@ import re
 import shlex
 import subprocess
 import sys
-import time
 from pathlib import Path
 
 import pytest
@@ -25,45 +24,24 @@ from hpc_model_utils.core.launch import (
     write_model_script,
 )
 from hpc_model_utils.core.workspace import Workspace
-from tests.support.launch_helpers import run_script, toolchain
-
-_REGEN_ENV = "HPCMU_REGEN_GOLDENS"
-_GOLDEN_PATH = (
-    Path(__file__).resolve().parents[2]
-    / "goldens"
-    / "v2"
-    / "sbatch"
-    / "model_mpiexec.sbatch"
+from tests.support.launch_helpers import (
+    GOLDEN_TELEMETRY,
+    GOLDEN_TOOLS,
+    SBATCH_GOLDEN_DIR,
+    assert_matches_golden,
+    assert_sidecar_after_rm_exit,
+    await_text,
+    run_script,
+    sidecar_golden_line,
+    toolchain,
 )
+
+_GOLDEN_PATH = SBATCH_GOLDEN_DIR / "model_mpiexec.sbatch"
 _SRUN_PMIX_GOLDEN_PATH = _GOLDEN_PATH.with_name("model_srun_pmix.sbatch")
 _ON_GOLDEN_PATH = _GOLDEN_PATH.with_name("model_mpiexec-telemetry.sbatch")
 _SRUN_PMIX_ON_GOLDEN_PATH = _GOLDEN_PATH.with_name(
     "model_srun_pmix-telemetry.sbatch"
 )
-_GOLDEN_TOOLS = Toolchain(
-    mpich_bin=Path("/opt/mpich/bin"),
-    slurm_bin=Path("/opt/slurm/bin"),
-    cli_bin=Path("/opt/hpcmu/bin"),
-)
-_TELEMETRY_ON = TelemetryConfig(
-    enabled=True, interval=5, workspace_interval=60, tool_version="9.9.9"
-)
-_RM_EXIT_GOLDEN_LINE = "rm -f <WS>/.hpcmu/jobs/model.exit"
-_SIDECAR_GOLDEN_LINE = (
-    'srun --overlap --nodes="${SLURM_JOB_NUM_NODES:-?}" '
-    '--ntasks="${SLURM_JOB_NUM_NODES:-?}" --ntasks-per-node=1 '
-    "--cpus-per-task=1 --cpu-bind=none --mpi=none --kill-on-bad-exit=0 "
-    "--input=none --wait=0 --job-name=hpcmu-telemetry "
-    "--output=<WS>/.hpcmu/telemetry/model-%j-r"
-    '"${SLURM_RESTART_COUNT:-0}"-%t.log /opt/hpcmu/python -I -m '
-    "hpc_model_utils.infra.telemetry.sampler --staging "
-    "<WS>/.hpcmu/telemetry --phase model --workspace <WS> --interval 5 "
-    "--workspace-interval 60 --tool-version 9.9.9 > "
-    '<WS>/.hpcmu/telemetry/model-"${SLURM_JOB_ID:-?}"-r'
-    '"${SLURM_RESTART_COUNT:-0}"-srun.log 2>&1 & disown'
-)
-_SIDECAR_LOG_TIMEOUT_S = 5
-_SIDECAR_LOG_POLL_S = 0.05
 
 
 def _write_stub(bin_dir: Path, name: str, body: str) -> Path:
@@ -72,47 +50,6 @@ def _write_stub(bin_dir: Path, name: str, body: str) -> Path:
     stub.write_text(f"#!/bin/bash\n{body}\n", encoding="utf-8")
     stub.chmod(0o755)
     return stub
-
-
-def _assert_matches_golden(
-    rendered: str, ws: Workspace, golden_path: Path, tmp_path: Path
-) -> None:
-    normalized = rendered.replace(str(ws.root), "<WS>")
-    if os.environ.get(_REGEN_ENV) == "1":
-        golden_path.parent.mkdir(parents=True, exist_ok=True)
-        golden_path.write_text(normalized, encoding="utf-8")
-        pytest.fail(
-            f"{_REGEN_ENV}=1: regenerated {golden_path}; "
-            "re-run without it to verify"
-        )
-
-    assert normalized == golden_path.read_text(encoding="utf-8")
-
-    script_path = tmp_path / "golden-check.sbatch"
-    script_path.write_text(rendered, encoding="utf-8")
-    subprocess.run(["bash", "-n", str(script_path)], check=True)
-
-
-def _assert_sidecar_after_rm_exit(on_golden: Path, off_golden: Path) -> None:
-    off_lines = off_golden.read_text(encoding="utf-8").split("\n")
-    on_lines = on_golden.read_text(encoding="utf-8").split("\n")
-    rm_index = off_lines.index(_RM_EXIT_GOLDEN_LINE)
-    assert on_lines[rm_index + 1] == _SIDECAR_GOLDEN_LINE
-    assert on_lines[: rm_index + 1] + on_lines[rm_index + 2 :] == off_lines
-
-
-def _await_text(path: Path, needle: str) -> str:
-    deadline = time.monotonic() + _SIDECAR_LOG_TIMEOUT_S
-    while True:
-        text = path.read_text(encoding="utf-8") if path.exists() else ""
-        if needle in text:
-            return text
-        if time.monotonic() >= deadline:
-            pytest.fail(
-                f"{needle!r} not in {path} within "
-                f"{_SIDECAR_LOG_TIMEOUT_S} s: {text!r}"
-            )
-        time.sleep(_SIDECAR_LOG_POLL_S)
 
 
 # -- format_time_limit -------------------------------------------------
@@ -629,9 +566,9 @@ def test_render_model_script_mpiexec_hydra_matches_golden(
     tmp_path: Path,
 ) -> None:
     ws, spec, res = _newave_golden_case(tmp_path)
-    rendered = render_model_script(ws, spec, res, _GOLDEN_TOOLS)
+    rendered = render_model_script(ws, spec, res, GOLDEN_TOOLS)
 
-    _assert_matches_golden(rendered, ws, _GOLDEN_PATH, tmp_path)
+    assert_matches_golden(rendered, ws, _GOLDEN_PATH, tmp_path)
     assert "#SBATCH --exclusive" in rendered
     assert "LD_LIBRARY_PATH" not in rendered
 
@@ -640,9 +577,9 @@ def test_render_model_script_srun_pmix_matches_golden(
     tmp_path: Path,
 ) -> None:
     ws, spec, res = _cobre_golden_case(tmp_path)
-    rendered = render_model_script(ws, spec, res, _GOLDEN_TOOLS)
+    rendered = render_model_script(ws, spec, res, GOLDEN_TOOLS)
 
-    _assert_matches_golden(rendered, ws, _SRUN_PMIX_GOLDEN_PATH, tmp_path)
+    assert_matches_golden(rendered, ws, _SRUN_PMIX_GOLDEN_PATH, tmp_path)
     assert "srun --mpi=pmix --ntasks-per-node=1" in rendered
     assert "export FI_PROVIDER=efa" in rendered
     assert "export LD_LIBRARY_PATH=" in rendered
@@ -656,11 +593,11 @@ def test_render_model_script_mpiexec_hydra_telemetry_matches_golden(
 ) -> None:
     ws, spec, res = _newave_golden_case(tmp_path)
     rendered = render_model_script(
-        ws, spec, res, _GOLDEN_TOOLS, telemetry=_TELEMETRY_ON
+        ws, spec, res, GOLDEN_TOOLS, telemetry=GOLDEN_TELEMETRY
     )
 
-    _assert_matches_golden(rendered, ws, _ON_GOLDEN_PATH, tmp_path)
-    _assert_sidecar_after_rm_exit(_ON_GOLDEN_PATH, _GOLDEN_PATH)
+    assert_matches_golden(rendered, ws, _ON_GOLDEN_PATH, tmp_path)
+    assert_sidecar_after_rm_exit(_ON_GOLDEN_PATH, _GOLDEN_PATH)
 
 
 def test_render_model_script_srun_pmix_telemetry_matches_golden(
@@ -668,13 +605,46 @@ def test_render_model_script_srun_pmix_telemetry_matches_golden(
 ) -> None:
     ws, spec, res = _cobre_golden_case(tmp_path)
     rendered = render_model_script(
-        ws, spec, res, _GOLDEN_TOOLS, telemetry=_TELEMETRY_ON
+        ws, spec, res, GOLDEN_TOOLS, telemetry=GOLDEN_TELEMETRY
     )
 
-    _assert_matches_golden(rendered, ws, _SRUN_PMIX_ON_GOLDEN_PATH, tmp_path)
-    _assert_sidecar_after_rm_exit(
+    assert_matches_golden(rendered, ws, _SRUN_PMIX_ON_GOLDEN_PATH, tmp_path)
+    assert_sidecar_after_rm_exit(
         _SRUN_PMIX_ON_GOLDEN_PATH, _SRUN_PMIX_GOLDEN_PATH
     )
+
+
+_PINNED_MODEL_SIDECAR_LINE = (
+    'srun --overlap --nodes="${SLURM_JOB_NUM_NODES:-?}" '
+    '--ntasks="${SLURM_JOB_NUM_NODES:-?}" --ntasks-per-node=1 '
+    "--cpus-per-task=1 --cpu-bind=none --mpi=none --kill-on-bad-exit=0 "
+    "--input=none --wait=0 --job-name=hpcmu-telemetry "
+    "--output=<WS>/.hpcmu/telemetry/model-%j-r"
+    '"${SLURM_RESTART_COUNT:-0}"-%t.log /opt/hpcmu/python -I -m '
+    "hpc_model_utils.infra.telemetry.sampler --staging "
+    "<WS>/.hpcmu/telemetry --phase model --workspace <WS> --interval 5 "
+    "--workspace-interval 60 --tool-version 9.9.9 > "
+    '<WS>/.hpcmu/telemetry/model-"${SLURM_JOB_ID:-?}"-r'
+    '"${SLURM_RESTART_COUNT:-0}"-srun.log 2>&1 & disown'
+)
+_PINNED_FINALIZE_SIDECAR_LINE = (
+    'srun --overlap --nodes="${SLURM_JOB_NUM_NODES:-?}" '
+    '--ntasks="${SLURM_JOB_NUM_NODES:-?}" --ntasks-per-node=1 '
+    "--cpus-per-task=1 --cpu-bind=none --mpi=none --kill-on-bad-exit=0 "
+    "--input=none --wait=0 --job-name=hpcmu-telemetry "
+    "--output=<WS>/.hpcmu/telemetry/finalize-%j-r"
+    '"${SLURM_RESTART_COUNT:-0}"-%t.log /opt/hpcmu/python -I -m '
+    "hpc_model_utils.infra.telemetry.sampler --staging "
+    "<WS>/.hpcmu/telemetry --phase finalize --workspace <WS> --interval 5 "
+    "--workspace-interval 60 --tool-version 9.9.9 > "
+    '<WS>/.hpcmu/telemetry/finalize-"${SLURM_JOB_ID:-?}"-r'
+    '"${SLURM_RESTART_COUNT:-0}"-srun.log 2>&1 & disown'
+)
+
+
+def test_sidecar_golden_line_pins_both_phases() -> None:
+    assert sidecar_golden_line("model") == _PINNED_MODEL_SIDECAR_LINE
+    assert sidecar_golden_line("finalize") == _PINNED_FINALIZE_SIDECAR_LINE
 
 
 # -- ticket-034: the sidecar seam for every Launcher (R41, ADR-095) ---------
@@ -696,7 +666,7 @@ def test_render_model_script_sidecar_every_launcher_inserts_one_line(
     )
     res = Resources(queue="batch", cores=4)
     off = render_model_script(ws, spec, res, tools)
-    on = render_model_script(ws, spec, res, tools, telemetry=_TELEMETRY_ON)
+    on = render_model_script(ws, spec, res, tools, telemetry=GOLDEN_TELEMETRY)
     disabled = render_model_script(
         ws, spec, res, tools, telemetry=TelemetryConfig(False, 30, 3600, "x")
     )
@@ -736,7 +706,9 @@ def test_write_model_script_sidecar_with_slurm_unset_keeps_rc_and_job_log(
     stub = _write_stub(tmp_path / "bin", "model_stub", "exit 7")
     spec = LaunchSpec(launcher=Launcher.DIRECT, argv=(str(stub),))
     res = Resources(queue="batch", cores=1)
-    script = write_model_script(ws, spec, res, tools, telemetry=_TELEMETRY_ON)
+    script = write_model_script(
+        ws, spec, res, tools, telemetry=GOLDEN_TELEMETRY
+    )
 
     result = run_script(script, tmp_path, {})
 
@@ -747,7 +719,7 @@ def test_write_model_script_sidecar_with_slurm_unset_keeps_rc_and_job_log(
     assert stdout_lines[0].startswith("HPCMU_START job=? restart=0 at=")
     assert stdout_lines[1].startswith("HPCMU_SHAPE nodes=? ")
     assert result.stderr == ""
-    _await_text(ws.telemetry_dir / "model-?-r0-srun.log", "stub-srun noise")
+    await_text(ws.telemetry_dir / "model-?-r0-srun.log", "stub-srun noise")
     recorded = argv_path.read_text(encoding="utf-8").splitlines()
     for item in (
         "--nodes=?",

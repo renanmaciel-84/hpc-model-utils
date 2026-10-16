@@ -7,7 +7,6 @@ import inspect
 import os
 import shlex
 import subprocess
-import time
 from pathlib import Path
 
 import pytest
@@ -17,84 +16,29 @@ from hpc_model_utils.core.launch import (
     FinalizeInvocation,
     Resources,
     TelemetryConfig,
-    Toolchain,
     render_finalize_script,
     write_finalize_script,
 )
 from hpc_model_utils.core.workspace import Workspace
-from tests.support.launch_helpers import run_script, toolchain
+from tests.support.launch_helpers import (
+    GOLDEN_TELEMETRY,
+    GOLDEN_TOOLS,
+    SBATCH_GOLDEN_DIR,
+    assert_matches_golden,
+    await_text,
+    run_script,
+    sidecar_golden_line,
+    toolchain,
+)
 
-_REGEN_ENV = "HPCMU_REGEN_GOLDENS"
-_GOLDEN_PATH = (
-    Path(__file__).resolve().parents[2]
-    / "goldens"
-    / "v2"
-    / "sbatch"
-    / "finalize.sbatch"
-)
+_GOLDEN_PATH = SBATCH_GOLDEN_DIR / "finalize.sbatch"
 _TELEMETRY_GOLDEN_PATH = _GOLDEN_PATH.with_name("finalize-telemetry.sbatch")
-_GOLDEN_TOOLS = Toolchain(
-    mpich_bin=Path("/opt/mpich/bin"),
-    slurm_bin=Path("/opt/slurm/bin"),
-    cli_bin=Path("/opt/hpcmu/bin"),
-)
-_TELEMETRY_ON = TelemetryConfig(
-    enabled=True, interval=5, workspace_interval=60, tool_version="9.9.9"
-)
-_SIDECAR_GOLDEN_LINE = (
-    'srun --overlap --nodes="${SLURM_JOB_NUM_NODES:-?}" '
-    '--ntasks="${SLURM_JOB_NUM_NODES:-?}" --ntasks-per-node=1 '
-    "--cpus-per-task=1 --cpu-bind=none --mpi=none --kill-on-bad-exit=0 "
-    "--input=none --wait=0 --job-name=hpcmu-telemetry "
-    "--output=<WS>/.hpcmu/telemetry/finalize-%j-r"
-    '"${SLURM_RESTART_COUNT:-0}"-%t.log /opt/hpcmu/python -I -m '
-    "hpc_model_utils.infra.telemetry.sampler --staging "
-    "<WS>/.hpcmu/telemetry --phase finalize --workspace <WS> --interval 5 "
-    "--workspace-interval 60 --tool-version 9.9.9 > "
-    '<WS>/.hpcmu/telemetry/finalize-"${SLURM_JOB_ID:-?}"-r'
-    '"${SLURM_RESTART_COUNT:-0}"-srun.log 2>&1 & disown'
-)
-_SIDECAR_LOG_TIMEOUT_S = 5
-_SIDECAR_LOG_POLL_S = 0.05
 
 
 def _write_stub(path: Path, body: str) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(f"#!/bin/bash\n{body}\n", encoding="utf-8")
     path.chmod(0o755)
-
-
-def _assert_matches_golden(
-    rendered: str, ws: Workspace, golden_path: Path, tmp_path: Path
-) -> None:
-    normalized = rendered.replace(str(ws.root), "<WS>")
-    if os.environ.get(_REGEN_ENV) == "1":
-        golden_path.parent.mkdir(parents=True, exist_ok=True)
-        golden_path.write_text(normalized, encoding="utf-8")
-        pytest.fail(
-            f"{_REGEN_ENV}=1: regenerated {golden_path}; "
-            "re-run without it to verify"
-        )
-
-    assert normalized == golden_path.read_text(encoding="utf-8")
-
-    script_path = tmp_path / "golden-check.sbatch"
-    script_path.write_text(rendered, encoding="utf-8")
-    subprocess.run(["bash", "-n", str(script_path)], check=True)
-
-
-def _await_text(path: Path, needle: str) -> str:
-    deadline = time.monotonic() + _SIDECAR_LOG_TIMEOUT_S
-    while True:
-        text = path.read_text(encoding="utf-8") if path.exists() else ""
-        if needle in text:
-            return text
-        if time.monotonic() >= deadline:
-            pytest.fail(
-                f"{needle!r} not in {path} within "
-                f"{_SIDECAR_LOG_TIMEOUT_S} s: {text!r}"
-            )
-        time.sleep(_SIDECAR_LOG_POLL_S)
 
 
 # -- FinalizeInvocation.__post_init__ ---------------------------------------
@@ -256,9 +200,9 @@ def _newave_golden_case(
 
 def test_render_finalize_script_matches_golden(tmp_path: Path) -> None:
     ws, res, inv = _newave_golden_case(tmp_path)
-    rendered = render_finalize_script(ws, res, _GOLDEN_TOOLS, inv)
+    rendered = render_finalize_script(ws, res, GOLDEN_TOOLS, inv)
 
-    _assert_matches_golden(rendered, ws, _GOLDEN_PATH, tmp_path)
+    assert_matches_golden(rendered, ws, _GOLDEN_PATH, tmp_path)
     assert "#SBATCH --exclusive" in rendered
     assert "#SBATCH --mem=0" in rendered
 
@@ -271,10 +215,10 @@ def test_render_finalize_script_telemetry_matches_golden(
 ) -> None:
     ws, res, inv = _newave_golden_case(tmp_path)
     rendered = render_finalize_script(
-        ws, res, _GOLDEN_TOOLS, inv, telemetry=_TELEMETRY_ON
+        ws, res, GOLDEN_TOOLS, inv, telemetry=GOLDEN_TELEMETRY
     )
 
-    _assert_matches_golden(rendered, ws, _TELEMETRY_GOLDEN_PATH, tmp_path)
+    assert_matches_golden(rendered, ws, _TELEMETRY_GOLDEN_PATH, tmp_path)
     off_lines = _GOLDEN_PATH.read_text(encoding="utf-8").split("\n")
     on_lines = _TELEMETRY_GOLDEN_PATH.read_text(encoding="utf-8").split("\n")
     [exec_index] = [
@@ -282,7 +226,7 @@ def test_render_finalize_script_telemetry_matches_golden(
         for index, line in enumerate(off_lines)
         if line.startswith("exec ")
     ]
-    assert on_lines[exec_index] == _SIDECAR_GOLDEN_LINE
+    assert on_lines[exec_index] == sidecar_golden_line("finalize")
     assert on_lines[:exec_index] + on_lines[exec_index + 1 :] == off_lines
 
 
@@ -306,7 +250,9 @@ def test_write_finalize_script_telemetry_keeps_cli_exit_code(
     )
     inv = FinalizeInvocation("newave", None, 4, None)
     res = Resources(queue="batch", cores=4)
-    script = write_finalize_script(ws, res, tools, inv, telemetry=_TELEMETRY_ON)
+    script = write_finalize_script(
+        ws, res, tools, inv, telemetry=GOLDEN_TELEMETRY
+    )
 
     result = run_script(script, tmp_path, {})
 
@@ -316,7 +262,7 @@ def test_write_finalize_script_telemetry_keeps_cli_exit_code(
     assert stdout_lines[0].startswith("HPCMU_START job=? restart=0 at=")
     assert stdout_lines[1].startswith("HPCMU_SHAPE nodes=? ")
     assert result.stderr == ""
-    _await_text(ws.telemetry_dir / "finalize-?-r0-srun.log", "stub-srun noise")
+    await_text(ws.telemetry_dir / "finalize-?-r0-srun.log", "stub-srun noise")
     recorded = argv_path.read_text(encoding="utf-8").splitlines()
     for item in ("--nodes=?", "--phase", "finalize", "--tool-version", "9.9.9"):
         assert item in recorded

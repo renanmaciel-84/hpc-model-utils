@@ -6,7 +6,28 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/).
 
 ## The 2.x series
 
-2.0.0 is the drop-in v2 engine, with the status-semantics change described in [`docs/notices/v2-status-semantics.md`](docs/notices/v2-status-semantics.md). 2.0.1 and 2.0.2 carry the versioned workflow definitions and the relay fixes that the NEWAVE and DECOMP workflows run. 2.1.0 adds cobre. 2.2.0 tightens the DECOMP FC stage check ([`docs/notices/v2-fc-stage-mismatch.md`](docs/notices/v2-fc-stage-mismatch.md)), cleans the logs and adds a cobre results dashboard. 2.2.1 fixes the reporting of S3 upload and read failures and the cancellation of a terminated run. 2.2.2 fixes the Upload NEWAVE ingest of large offline runs. 2.2.3 supports cobre v0.18.0.
+2.0.0 is the drop-in v2 engine, with the status-semantics change described in [`docs/notices/v2-status-semantics.md`](docs/notices/v2-status-semantics.md). 2.0.1 and 2.0.2 carry the versioned workflow definitions and the relay fixes that the NEWAVE and DECOMP workflows run. 2.1.0 adds cobre. 2.2.0 tightens the DECOMP FC stage check ([`docs/notices/v2-fc-stage-mismatch.md`](docs/notices/v2-fc-stage-mismatch.md)), cleans the logs and adds a cobre results dashboard. 2.2.1 fixes the reporting of S3 upload and read failures and the cancellation of a terminated run. 2.2.2 fixes the Upload NEWAVE ingest of large offline runs. 2.2.3 supports cobre v0.18.0. 2.3.0 adds job telemetry.
+
+## [2.3.0] - 2026-10-16
+
+### Added
+
+- Job telemetry: with telemetry on, the model and finalize job scripts start a sampler on every node of the job through one `srun --overlap` sidecar line. The sampler's own output goes to logs under `.hpcmu/telemetry/`, never to the relayed job log.
+- `result_upload` exports what the sampler recorded into three files of the run's artifacts: `saidas/telemetry/samples.parquet` (one row per sample of every node, restart and exported job), `saidas/telemetry/workspace.parquet` (one row per workspace walk, taken on node 0) and `saidas/telemetry/summary.json` (the statistics of each node, the headline values and the warnings).
+- `result_upload` reports the headline values of `summary.json` to ModelOps as `telemetry.<scope>.<statistic>` SetMetadata hooks, after the last upload; the scopes are `model`, `finalize` and `workspace`.
+- [`docs/telemetry.md`](docs/telemetry.md): the contract of the three telemetry files, with their formats, the `schema_version` policy, how to read them with duckdb, polars and pandas, and a reference generated from the schema.
+- Three settings, read from the environment: `HPCMU_TELEMETRY` (`on` or `off`, default `on`), `HPCMU_TELEMETRY_INTERVAL` (the sample interval, 5 to 30 seconds, default 5) and `HPCMU_TELEMETRY_WORKSPACE_INTERVAL` (the workspace walk interval, 60 to 3600 seconds, default 60). `run` applies them when it writes the job scripts, and a value outside its range is a usage error.
+- pyarrow is a runtime dependency. It adds about 165 MB unpacked to each per-SHA install, before ZFS compression, from a Linux x86_64 wheel of about 54 MB.
+- `deploy/modelops/scripts/ensure-tools.sh` imports `pyarrow.parquet` through the install's own interpreter when it installs hpc-model-utils, so a broken pyarrow install fails at install time.
+- `deploy/modelops/compare_job_logs.py` compares the job log of a telemetry-off run with the job log of a telemetry-on run of the same job, after masking their volatile tokens, in a `strict` and a `prd` mode. It needs only the standard library.
+
+### Changed
+
+- With telemetry on, the model and finalize job scripts gain one sidecar line; with telemetry off, they are byte-identical to 2.2.3.
+- `result_upload` exports the telemetry before any upload and uploads its three files after `sintese/*` and before the `saidas/status.modelops` and `saidas/metadata.modelops` markers.
+- A failed upload of a telemetry file is a storage error, as for any other artifact: `result_upload` exits 4.
+
+Telemetry never changes a run's status, exit code, relayed job log or diagnosis, except for the exit 4 of a failed telemetry upload. A failed or skipped export only leaves out the telemetry files and their hooks.
 
 ## [2.2.3] - 2026-10-14
 

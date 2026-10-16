@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import math
 import re
+from collections.abc import Iterable
 from dataclasses import dataclass
 from typing import Final
 
@@ -119,11 +120,24 @@ class HeaderField:
     meaning: str
 
 
-# Conventions behind the meanings: Δ is the difference between this
-# sample's read and the previous one, and online CPUs is the number of cpuN
-# lines in /proc/stat. Every rate is null on a counter decrease, on a
-# missing baseline, or after a failed read of its source; the /proc/stat
-# CPU columns follow the per-line ADR-093 rule written into their meanings.
+MEANING_CONVENTIONS: Final[tuple[str, ...]] = (
+    "Δ is the difference between this sample's read and the previous one.",
+    "online CPUs is the number of cpuN lines in /proc/stat.",
+    "Every rate is null on a counter decrease, on a missing baseline, or "
+    "after a failed read of its source.",
+    "The /proc/stat CPU columns follow the per-line ADR-093 rule written "
+    "into their meanings.",
+    "A source whose read fails leaves every column of that source null in "
+    "that sample; its rates are also null in the next sample, which has no "
+    "baseline.",
+    "A source with nothing to read (no job cgroup, a workspace not on an NFS "
+    "mount, no EFA device) leaves its columns null and writes no error line.",
+    "A float that is not finite is written as null.",
+    "Every cgroup column is null when the header's job_cgroup is null.",
+    "A header field whose source cannot be read or parsed, a malformed Slurm "
+    "variable included, is null.",
+)
+
 SAMPLE_COLUMNS: Final[tuple[Column, ...]] = (
     Column(
         name="ts",
@@ -167,7 +181,10 @@ SAMPLE_COLUMNS: Final[tuple[Column, ...]] = (
         nullable=False,
         unit="-",
         source="identity",
-        meaning="Slurm node name (SLURMD_NODENAME)",
+        meaning=(
+            "Slurm node name (SLURMD_NODENAME), or the host name (uname "
+            "nodename) when SLURMD_NODENAME is unset"
+        ),
     ),
     Column(
         name="node_index",
@@ -241,7 +258,7 @@ SAMPLE_COLUMNS: Final[tuple[Column, ...]] = (
         nullable=True,
         unit="fraction",
         source="stat",
-        meaning="cpu_busy_cores / online CPUs",
+        meaning="cpu_busy_cores / online CPUs; null as cpu_busy_cores",
     ),
     Column(
         name="cpu_user_cores",
@@ -460,7 +477,7 @@ SAMPLE_COLUMNS: Final[tuple[Column, ...]] = (
         source="cgroup",
         meaning=(
             "memory.current of the job cgroup − memory.current of the own "
-            "step, clamped at 0"
+            "step, clamped at 0; no subtraction when own_step_cgroup is null"
         ),
     ),
     Column(
@@ -471,7 +488,7 @@ SAMPLE_COLUMNS: Final[tuple[Column, ...]] = (
         source="cgroup",
         meaning=(
             "memory.stat anon of the job cgroup − anon of the own step, "
-            "clamped at 0"
+            "clamped at 0; no subtraction when own_step_cgroup is null"
         ),
     ),
     Column(
@@ -482,7 +499,7 @@ SAMPLE_COLUMNS: Final[tuple[Column, ...]] = (
         source="cgroup",
         meaning=(
             "memory.stat file of the job cgroup − file of the own step, "
-            "clamped at 0"
+            "clamped at 0; no subtraction when own_step_cgroup is null"
         ),
     ),
     Column(
@@ -493,7 +510,7 @@ SAMPLE_COLUMNS: Final[tuple[Column, ...]] = (
         source="cgroup",
         meaning=(
             "memory.stat shmem of the job cgroup − shmem of the own step, "
-            "clamped at 0"
+            "clamped at 0; no subtraction when own_step_cgroup is null"
         ),
     ),
     Column(
@@ -514,7 +531,10 @@ SAMPLE_COLUMNS: Final[tuple[Column, ...]] = (
         nullable=True,
         unit="count",
         source="cgroup",
-        meaning="pids.current of the job cgroup, the sampler step included",
+        meaning=(
+            "pids.current of the job cgroup, the sampler step included; null "
+            "when the job cgroup has no pids controller (pids.current absent)"
+        ),
     ),
     Column(
         name="job_oom_kills",
@@ -587,8 +607,8 @@ SAMPLE_COLUMNS: Final[tuple[Column, ...]] = (
         source="diskstats",
         meaning=(
             "Σ Δsectors read × 512 / dt_s over whole local disks (a "
-            "/sys/block/<dev>/device entry and hidden absent or 0) present in "
-            "both reads"
+            "/sys/block/<dev>/device entry, and a /sys/block/<dev>/hidden file "
+            "that is absent or holds 0) present in both reads"
         ),
     ),
     Column(
@@ -619,7 +639,7 @@ SAMPLE_COLUMNS: Final[tuple[Column, ...]] = (
         meaning=(
             "Δ(normalreadbytes + directreadbytes) / dt_s of the workspace "
             "mount (the mountstats entry whose mountpoint is the longest "
-            "prefix of the workspace path)"
+            "prefix of the workspace path, its symlinks resolved)"
         ),
     ),
     Column(
@@ -786,7 +806,10 @@ WORKSPACE_COLUMNS: Final[tuple[Column, ...]] = (
         nullable=False,
         unit="-",
         source="identity",
-        meaning="Slurm node name (SLURMD_NODENAME)",
+        meaning=(
+            "Slurm node name (SLURMD_NODENAME), or the host name (uname "
+            "nodename) when SLURMD_NODENAME is unset"
+        ),
     ),
     Column(
         name="apparent_bytes",
@@ -1241,7 +1264,10 @@ HEADER_FIELDS: Final[tuple[HeaderField, ...]] = (
         name="node",
         json_type="string",
         nullable=False,
-        meaning="Slurm node name (SLURMD_NODENAME)",
+        meaning=(
+            "Slurm node name (SLURMD_NODENAME), or the host name (uname "
+            "nodename) when SLURMD_NODENAME is unset"
+        ),
     ),
     HeaderField(
         name="node_index",
@@ -1253,19 +1279,24 @@ HEADER_FIELDS: Final[tuple[HeaderField, ...]] = (
         name="nodes",
         json_type="integer",
         nullable=True,
-        meaning="SLURM_JOB_NUM_NODES",
+        meaning="SLURM_JOB_NUM_NODES; null when it is unset or empty",
     ),
     HeaderField(
         name="partition",
         json_type="string",
         nullable=True,
-        meaning="SLURM_JOB_PARTITION",
+        meaning="SLURM_JOB_PARTITION, stripped; null when it is unset or blank",
     ),
     HeaderField(
         name="cpus_on_node",
         json_type="integer",
         nullable=True,
-        meaning="SLURM_JOB_CPUS_PER_NODE indexed by SLURM_NODEID",
+        meaning=(
+            "SLURM_JOB_CPUS_PER_NODE indexed by SLURM_NODEID, after expanding "
+            "Slurm's compressed list (192(x2) is 192, 192); null when "
+            "SLURM_JOB_CPUS_PER_NODE is unset or empty, or when SLURM_NODEID "
+            "is outside the expanded list"
+        ),
     ),
     HeaderField(
         name="instance_type",
@@ -1312,7 +1343,9 @@ HEADER_FIELDS: Final[tuple[HeaderField, ...]] = (
         nullable=True,
         meaning=(
             "/sys/fs/cgroup path of the sampler's own step, subtracted from "
-            "the job values; null when own-step subtraction is off"
+            "the job values; null when the sampler's cgroup has no numbered "
+            "step_N component (a step_batch, step_extern or step_interactive "
+            "step, or no step), and then nothing is subtracted"
         ),
     ),
     HeaderField(
@@ -1321,7 +1354,8 @@ HEADER_FIELDS: Final[tuple[HeaderField, ...]] = (
         nullable=True,
         meaning=(
             "{mountpoint, fstype} of the mountstats entry whose mountpoint is "
-            "the longest prefix of the workspace path"
+            "the longest prefix of the workspace path, its symlinks resolved; "
+            "null when no entry matches"
         ),
     ),
     HeaderField(
@@ -1353,12 +1387,55 @@ WORKSPACE_SORT_KEYS: Final = ("phase", "job_id", "restart", "ts")
 
 HEADLINE_KEY_PREFIX: Final = "telemetry."
 WORKSPACE_SCOPE: Final = "workspace"
-HEADLINE_FORMATS: Final = frozenset({"bytes", "cores", "fraction"})
-# node_rows: the statistic over the pooled rows of every node and restart,
-# so the value is a per-node figure. sum_nodes: the sum over the rows of
-# every node and restart, a whole-job figure. walks: over the walks of the
-# reported jobs.
-HEADLINE_POOLINGS: Final = frozenset({"node_rows", "sum_nodes", "walks"})
+
+
+@dataclass(frozen=True, slots=True)
+class Term:
+    name: str
+    meaning: str
+
+
+HEADLINE_FORMAT_TERMS: Final[tuple[Term, ...]] = (
+    Term(
+        name="bytes",
+        meaning=(
+            "an integer number of bytes, rounded half to even, written as "
+            "plain digits"
+        ),
+    ),
+    Term(
+        name="cores",
+        meaning="a fixed-point number with 2 decimals, no sign and no exponent",
+    ),
+    Term(
+        name="fraction",
+        meaning="a fixed-point number with 4 decimals, no sign and no exponent",
+    ),
+)
+HEADLINE_FORMATS: Final = frozenset(t.name for t in HEADLINE_FORMAT_TERMS)
+
+HEADLINE_POOLING_TERMS: Final[tuple[Term, ...]] = (
+    Term(
+        name="node_rows",
+        meaning=(
+            "the statistic over the rows of every node and restart pooled "
+            "together, so the value is a per-node figure: a mean is the mean "
+            "of one node and a max is the worst node"
+        ),
+    ),
+    Term(
+        name="sum_nodes",
+        meaning=(
+            "the sum over the rows of every node and restart, a whole-job "
+            "figure"
+        ),
+    ),
+    Term(
+        name="walks",
+        meaning="the statistic over the walks of the reported jobs",
+    ),
+)
+HEADLINE_POOLINGS: Final = frozenset(t.name for t in HEADLINE_POOLING_TERMS)
 
 
 @dataclass(frozen=True, slots=True)
@@ -1553,8 +1630,8 @@ HEADLINE: Final[tuple[HeadlineSpec, ...]] = (
     ),
 )
 
-# ADR-071: summary.json holds at most WARNINGS_CAP warnings
-# {code, phase, job_id, restart, node_index, count, message}.
+# ADR-071: summary.json holds at most WARNINGS_CAP warnings, whose fields
+# are the warnings[] rows of SUMMARY_FIELDS.
 # STAGING_LINE_LIMIT is the bytes of one staging line, its \n included.
 WARNINGS_CAP: Final = 500
 STAGING_LINE_LIMIT: Final = 65536
@@ -1619,6 +1696,281 @@ WARNING_CODES: Final[tuple[WarningCode, ...]] = (
 )
 
 
+@dataclass(frozen=True, slots=True)
+class SummaryField:
+    """ADR-071: one key path of summary.json.
+
+    path joins the keys with ".", and "[]" stands for the elements of an
+    array. json_type is object, array, string, integer, number or map, where
+    a map is an object whose keys are listed elsewhere in the contract. A
+    required path is present in every object of its parent.
+    """
+
+    path: str
+    json_type: str
+    required: bool
+    nullable: bool
+    meaning: str
+
+
+SUMMARY_FIELDS: Final[tuple[SummaryField, ...]] = (
+    SummaryField(
+        path="kind",
+        json_type="string",
+        required=True,
+        nullable=False,
+        meaning="the summary kind, hpcmu.telemetry.summary",
+    ),
+    SummaryField(
+        path="schema_version",
+        json_type="integer",
+        required=True,
+        nullable=False,
+        meaning="the schema version of the contract",
+    ),
+    SummaryField(
+        path="run",
+        json_type="object",
+        required=True,
+        nullable=False,
+        meaning="the run the export covers",
+    ),
+    SummaryField(
+        path="run.run_id",
+        json_type="string",
+        required=True,
+        nullable=False,
+        meaning="the run_id of state.json",
+    ),
+    SummaryField(
+        path="run.model",
+        json_type="string",
+        required=True,
+        nullable=False,
+        meaning="the plugin name of the run",
+    ),
+    SummaryField(
+        path="run.tool_version",
+        json_type="string",
+        required=True,
+        nullable=False,
+        meaning="the hpc-model-utils version that ran the export",
+    ),
+    SummaryField(
+        path="run.interval_s",
+        json_type="integer",
+        required=True,
+        nullable=True,
+        meaning=(
+            "interval_s of the first valid header; null when no header is valid"
+        ),
+    ),
+    SummaryField(
+        path="run.workspace_interval_s",
+        json_type="integer",
+        required=True,
+        nullable=True,
+        meaning=(
+            "workspace_interval_s of the first valid header; null when no "
+            "header is valid"
+        ),
+    ),
+    SummaryField(
+        path="jobs",
+        json_type="array",
+        required=True,
+        nullable=False,
+        meaning=(
+            "one entry per exported job, in the order of the recorded jobs"
+        ),
+    ),
+    SummaryField(
+        path="jobs[].phase",
+        json_type="string",
+        required=True,
+        nullable=False,
+        meaning="a PHASES value",
+    ),
+    SummaryField(
+        path="jobs[].job_id",
+        json_type="string",
+        required=True,
+        nullable=False,
+        meaning="the Slurm job id",
+    ),
+    SummaryField(
+        path="jobs[].nodes",
+        json_type="array",
+        required=True,
+        nullable=False,
+        meaning=(
+            "one entry per valid staging file of the job, in sample sort order"
+        ),
+    ),
+    SummaryField(
+        path="jobs[].nodes[].header",
+        json_type="map",
+        required=True,
+        nullable=False,
+        meaning=(
+            "the staging header, keys as in the staging header fields table"
+        ),
+    ),
+    SummaryField(
+        path="jobs[].nodes[].first_ts",
+        json_type="integer",
+        required=False,
+        nullable=False,
+        meaning=(
+            "ts of the first kept sample, in ms since the epoch; absent "
+            "without a sample"
+        ),
+    ),
+    SummaryField(
+        path="jobs[].nodes[].last_ts",
+        json_type="integer",
+        required=False,
+        nullable=False,
+        meaning="ts of the last kept sample; absent without a sample",
+    ),
+    SummaryField(
+        path="jobs[].nodes[].samples",
+        json_type="integer",
+        required=True,
+        nullable=False,
+        meaning="the number of kept samples",
+    ),
+    SummaryField(
+        path="jobs[].nodes[].gaps",
+        json_type="integer",
+        required=True,
+        nullable=False,
+        meaning="the number of samples whose dt_s exceeds 1.5 × interval_s",
+    ),
+    SummaryField(
+        path="jobs[].nodes[].max_gap_s",
+        json_type="number",
+        required=False,
+        nullable=False,
+        meaning="the largest non-null dt_s; absent when every dt_s is null",
+    ),
+    SummaryField(
+        path="jobs[].nodes[].stats",
+        json_type="map",
+        required=True,
+        nullable=False,
+        meaning=(
+            "the samples.parquet statistics of this file, names as in the "
+            "statistics table"
+        ),
+    ),
+    SummaryField(
+        path="workspace",
+        json_type="object",
+        required=True,
+        nullable=False,
+        meaning="the workspace walks of every exported job",
+    ),
+    SummaryField(
+        path="workspace.walks",
+        json_type="integer",
+        required=True,
+        nullable=False,
+        meaning="the number of kept walks",
+    ),
+    SummaryField(
+        path="workspace.stats",
+        json_type="map",
+        required=True,
+        nullable=False,
+        meaning="the workspace.parquet statistics over every kept walk",
+    ),
+    SummaryField(
+        path="headline",
+        json_type="object",
+        required=True,
+        nullable=False,
+        meaning="the headline values and the jobs they come from",
+    ),
+    SummaryField(
+        path="headline.job_ids",
+        json_type="map",
+        required=True,
+        nullable=False,
+        meaning=(
+            "for each phase, the job id of its last recorded job, the one "
+            "the headline values report"
+        ),
+    ),
+    SummaryField(
+        path="headline.values",
+        json_type="map",
+        required=True,
+        nullable=False,
+        meaning="the headline values, keys as in the headline table",
+    ),
+    SummaryField(
+        path="warnings",
+        json_type="array",
+        required=True,
+        nullable=False,
+        meaning=(
+            "at most WARNINGS_CAP warnings, in file order then the missing "
+            "nodes"
+        ),
+    ),
+    SummaryField(
+        path="warnings[].code",
+        json_type="string",
+        required=True,
+        nullable=False,
+        meaning="a warning code",
+    ),
+    SummaryField(
+        path="warnings[].phase",
+        json_type="string",
+        required=True,
+        nullable=True,
+        meaning="the attempt's phase; null for warnings_capped",
+    ),
+    SummaryField(
+        path="warnings[].job_id",
+        json_type="string",
+        required=True,
+        nullable=True,
+        meaning="the attempt's job id; null for warnings_capped",
+    ),
+    SummaryField(
+        path="warnings[].restart",
+        json_type="integer",
+        required=True,
+        nullable=True,
+        meaning="the attempt's restart; null for warnings_capped",
+    ),
+    SummaryField(
+        path="warnings[].node_index",
+        json_type="integer",
+        required=True,
+        nullable=True,
+        meaning="the attempt's node index; null for warnings_capped",
+    ),
+    SummaryField(
+        path="warnings[].count",
+        json_type="integer",
+        required=True,
+        nullable=False,
+        meaning="the occurrences this warning stands for",
+    ),
+    SummaryField(
+        path="warnings[].message",
+        json_type="string",
+        required=True,
+        nullable=False,
+        meaning="a human-readable detail",
+    ),
+)
+
+
 def staging_file_name(
     phase: str, job_id: str, restart: int, node_index: int
 ) -> str:
@@ -1667,3 +2019,384 @@ def format_headline_value(fmt: str, value: int | float) -> str:
     if fmt == "cores":
         return f"{magnitude:.2f}"
     return f"{magnitude:.4f}"
+
+
+def _code(text: str) -> str:
+    return f"`{text}`"
+
+
+def _escape(text: str) -> str:
+    """text with the Markdown specials \\ * < & backslash-escaped.
+
+    The meanings hold no newline, | or backtick (test_schema.py), so only
+    these four can change how GitHub renders a cell: <dev> would read as an
+    HTML tag and infiniband/*/ports as an emphasis marker.
+    """
+    for special in ("\\", "*", "<", "&"):
+        text = text.replace(special, "\\" + special)
+    return text
+
+
+def _yes_no(flag: bool) -> str:
+    return "yes" if flag else "no"
+
+
+def _table(
+    header: tuple[str, ...], rows: Iterable[tuple[str, ...]]
+) -> list[str]:
+    lines = [f"| {' | '.join(header)} |", f"|{' --- |' * len(header)}"]
+    lines.extend(f"| {' | '.join(row)} |" for row in rows)
+    return lines
+
+
+# file -> (kind, the name of its kind constant, sort keys) for EXPORT_FILES:
+# the file rows of render_markdown and of contract_snapshot.
+_FILE_FACTS: Final[dict[str, tuple[str, str, tuple[str, ...]]]] = {
+    SAMPLES_FILE: (SAMPLES_KIND, "SAMPLES_KIND", SAMPLE_SORT_KEYS),
+    WORKSPACE_FILE: (WORKSPACE_KIND, "WORKSPACE_KIND", WORKSPACE_SORT_KEYS),
+    SUMMARY_FILE: (SUMMARY_KIND, "SUMMARY_KIND", ()),
+}
+_HEADLINE_SCOPES: Final = (*PHASES, WORKSPACE_SCOPE)
+
+
+def _file_row(name: str) -> tuple[str, str, str]:
+    kind, constant, sort_keys = _FILE_FACTS[name]
+    return (
+        _code(name),
+        f"{_code(kind)} ({_code(constant)})",
+        ", ".join(_code(key) for key in sort_keys) or "-",
+    )
+
+
+def _published_names(spec: StatSpec) -> list[str]:
+    """The published names of spec in aggregate order.
+
+    total is last in STAT_AGGREGATES, so its literal name goes last.
+    """
+    names = [f"{spec.column}_{a}" for a in spec.aggregates if a != "total"]
+    if spec.total_name is not None:
+        names.append(spec.total_name)
+    return names
+
+
+def _stat_names(spec: StatSpec) -> str:
+    """The published names of spec in aggregate order, as code spans."""
+    return ", ".join(_code(name) for name in _published_names(spec))
+
+
+def _column_table(columns: tuple[Column, ...]) -> list[str]:
+    return _table(
+        ("column", "type", "nullable", "unit", "source", "meaning"),
+        (
+            (
+                _code(c.name),
+                _code(c.dtype),
+                _yes_no(c.nullable),
+                _code(c.unit),
+                _code(c.source),
+                _escape(c.meaning),
+            )
+            for c in columns
+        ),
+    )
+
+
+def _term_table(title: str, terms: tuple[Term, ...]) -> list[str]:
+    return _table(
+        (title, "meaning"),
+        ((_code(t.name), _escape(t.meaning)) for t in terms),
+    )
+
+
+def render_markdown() -> str:
+    """ADR-072/R56: the generated reference block of docs/telemetry.md.
+
+    A pure function of this module's records: the text starts with the
+    first ### heading and ends with one newline. Names, keys, paths, types,
+    units and sources are code spans; meanings, conventions and terms go
+    through _escape.
+    """
+    scopes = ", ".join(_code(scope) for scope in _HEADLINE_SCOPES)
+    stat_maps = (
+        (SAMPLE_STATS, SAMPLES_FILE, "jobs[].nodes[].stats"),
+        (WORKSPACE_STATS, WORKSPACE_FILE, "workspace.stats"),
+    )
+    sections: list[list[str]] = [
+        [
+            "### Version and files",
+            "",
+            f"Schema version: {_code(str(SCHEMA_VERSION))} "
+            f"({_code('SCHEMA_VERSION')}).",
+            "",
+            f"Phases: {', '.join(_code(phase) for phase in PHASES)} "
+            f"({_code('PHASES')}).",
+            "",
+            *_table(
+                ("file", "kind", "sort order"),
+                (_file_row(name) for name in EXPORT_FILES),
+            ),
+        ],
+        [
+            "### Parquet key-value metadata",
+            "",
+            "Both Parquet files carry these keys in their key-value metadata.",
+            "",
+            *_table(
+                ("key", "meaning"),
+                (
+                    (_code(k.name), _escape(k.meaning))
+                    for k in PARQUET_METADATA_KEYS
+                ),
+            ),
+        ],
+        [
+            "### Conventions",
+            "",
+            *(f"- {_escape(text)}" for text in MEANING_CONVENTIONS),
+        ],
+        [
+            f"### {SAMPLES_FILE} columns",
+            "",
+            *_column_table(SAMPLE_COLUMNS),
+        ],
+        [
+            f"### {WORKSPACE_FILE} columns",
+            "",
+            *_column_table(WORKSPACE_COLUMNS),
+        ],
+        [
+            "### Staging header fields",
+            "",
+            "Each field is published verbatim in the "
+            f"{_code('hpcmu.headers')} metadata key and in "
+            f"{_code(SUMMARY_FILE)} {_code('jobs[].nodes[].header')}.",
+            "",
+            *_table(
+                ("field", "JSON type", "nullable", "meaning"),
+                (
+                    (
+                        _code(f.name),
+                        _code(f.json_type),
+                        _yes_no(f.nullable),
+                        _escape(f.meaning),
+                    )
+                    for f in HEADER_FIELDS
+                ),
+            ),
+        ],
+        [
+            f"### {SUMMARY_FILE} layout",
+            "",
+            "A path joins the keys with `.`, and `[]` stands for the "
+            "elements of an array. A `map` is an object whose keys are "
+            "listed in another table. A required path is present in every "
+            "object of its parent.",
+            "",
+            *_table(
+                ("path", "JSON type", "required", "nullable", "meaning"),
+                (
+                    (
+                        _code(f.path),
+                        _code(f.json_type),
+                        _yes_no(f.required),
+                        _yes_no(f.nullable),
+                        _escape(f.meaning),
+                    )
+                    for f in SUMMARY_FIELDS
+                ),
+            ),
+        ],
+        [
+            f"### {SUMMARY_FILE} statistics",
+            "",
+            "Every aggregate except `total` is published as "
+            "`<column>_<aggregate>`, and the total under its listed name. "
+            "The aggregates are "
+            f"{', '.join(_code(a) for a in STAT_AGGREGATES)}, in this order. "
+            "A statistic with no contributing value is absent, never 0.",
+            "",
+            *_table(
+                ("column", "file", f"{SUMMARY_FILE} map", "names"),
+                (
+                    (
+                        _code(spec.column),
+                        _code(file),
+                        _code(stat_map),
+                        _stat_names(spec),
+                    )
+                    for specs, file, stat_map in stat_maps
+                    for spec in specs
+                ),
+            ),
+        ],
+        [
+            "### Headline values and hooks",
+            "",
+            "`headline.values` holds `<scope>.<statistic>`, and the ModelOps "
+            "metadata hook of a value is "
+            f"{_code(HEADLINE_KEY_PREFIX + '<scope>.<statistic>')} "
+            f"({_code('HEADLINE_KEY_PREFIX')}). `<statistic>` is a published "
+            f"statistic name, and the scopes are {scopes}.",
+            "",
+            *_term_table("pooling", HEADLINE_POOLING_TERMS),
+            "",
+            *_term_table("format", HEADLINE_FORMAT_TERMS),
+            "",
+            *_table(
+                (
+                    "hook key",
+                    "scope",
+                    "file",
+                    "column",
+                    "aggregate",
+                    "pooling",
+                    "format",
+                ),
+                (
+                    (
+                        _code(HEADLINE_KEY_PREFIX + h.key),
+                        _code(h.scope),
+                        _code(h.source),
+                        _code(h.column),
+                        _code(h.aggregate),
+                        _code(h.pooling),
+                        _code(h.fmt),
+                    )
+                    for h in HEADLINE
+                ),
+            ),
+        ],
+        [
+            "### Warning codes",
+            "",
+            *_table(
+                ("code", "meaning"),
+                ((_code(w.code), _escape(w.meaning)) for w in WARNING_CODES),
+            ),
+            "",
+            f"The list holds at most {_code(str(WARNINGS_CAP))} warnings "
+            f"({_code('WARNINGS_CAP')}).",
+        ],
+    ]
+    lines: list[str] = []
+    for section in sections:
+        if lines:
+            lines.append("")
+        lines.extend(section)
+    return "\n".join(lines) + "\n"
+
+
+type SnapshotValue = (
+    str | int | bool | None | list[SnapshotValue] | dict[str, SnapshotValue]
+)
+
+
+def _texts(items: Iterable[str]) -> list[SnapshotValue]:
+    return list(items)
+
+
+def _file_entry(name: str) -> dict[str, SnapshotValue]:
+    kind, _, sort_keys = _FILE_FACTS[name]
+    return {"name": name, "kind": kind, "sort_keys": _texts(sort_keys)}
+
+
+def _metadata_entry(key: MetadataKey) -> dict[str, SnapshotValue]:
+    return {"name": key.name, "meaning": key.meaning}
+
+
+def _column_entry(column: Column) -> dict[str, SnapshotValue]:
+    return {
+        "name": column.name,
+        "dtype": column.dtype,
+        "nullable": column.nullable,
+        "unit": column.unit,
+        "source": column.source,
+        "meaning": column.meaning,
+    }
+
+
+def _header_entry(field: HeaderField) -> dict[str, SnapshotValue]:
+    return {
+        "name": field.name,
+        "json_type": field.json_type,
+        "nullable": field.nullable,
+        "meaning": field.meaning,
+    }
+
+
+def _summary_entry(field: SummaryField) -> dict[str, SnapshotValue]:
+    return {
+        "path": field.path,
+        "json_type": field.json_type,
+        "required": field.required,
+        "nullable": field.nullable,
+        "meaning": field.meaning,
+    }
+
+
+def _stat_entry(spec: StatSpec) -> dict[str, SnapshotValue]:
+    return {
+        "column": spec.column,
+        "aggregates": _texts(spec.aggregates),
+        "total_name": spec.total_name,
+        "names": _texts(_published_names(spec)),
+    }
+
+
+def _term_entry(term: Term) -> dict[str, SnapshotValue]:
+    return {"name": term.name, "meaning": term.meaning}
+
+
+def _headline_entry(spec: HeadlineSpec) -> dict[str, SnapshotValue]:
+    return {
+        "scope": spec.scope,
+        "source": spec.source,
+        "column": spec.column,
+        "aggregate": spec.aggregate,
+        "key": spec.key,
+        "pooling": spec.pooling,
+        "fmt": spec.fmt,
+    }
+
+
+def _warning_entry(warning: WarningCode) -> dict[str, SnapshotValue]:
+    return {"code": warning.code, "meaning": warning.meaning}
+
+
+def contract_snapshot() -> dict[str, SnapshotValue]:
+    """ADR-072/ADR-093: the published contract as plain JSON data.
+
+    tests/goldens/telemetry/schema-v<SCHEMA_VERSION>.json freezes it, and
+    a contract test holds every later version to its survival rules. Tuples
+    become lists in tuple order, and each call builds a fresh object. The
+    staging-only items stay out (ADR-069): the walk and error kinds, the
+    error fields, the line limit and the staging file name, and the token
+    sets, whose used members the columns carry.
+    """
+    return {
+        "schema_version": SCHEMA_VERSION,
+        "kinds": {
+            "header": HEADER_KIND,
+            "samples": SAMPLES_KIND,
+            "workspace": WORKSPACE_KIND,
+            "summary": SUMMARY_KIND,
+        },
+        "phases": _texts(PHASES),
+        "files": [_file_entry(name) for name in EXPORT_FILES],
+        "parquet_metadata": [_metadata_entry(k) for k in PARQUET_METADATA_KEYS],
+        "meaning_conventions": _texts(MEANING_CONVENTIONS),
+        "sample_columns": [_column_entry(c) for c in SAMPLE_COLUMNS],
+        "workspace_columns": [_column_entry(c) for c in WORKSPACE_COLUMNS],
+        "header_fields": [_header_entry(f) for f in HEADER_FIELDS],
+        "summary_fields": [_summary_entry(f) for f in SUMMARY_FIELDS],
+        "stat_aggregates": _texts(STAT_AGGREGATES),
+        "sample_stats": [_stat_entry(s) for s in SAMPLE_STATS],
+        "workspace_stats": [_stat_entry(s) for s in WORKSPACE_STATS],
+        "headline_key_prefix": HEADLINE_KEY_PREFIX,
+        "headline_scopes": _texts(_HEADLINE_SCOPES),
+        "headline_poolings": [_term_entry(t) for t in HEADLINE_POOLING_TERMS],
+        "headline_formats": [_term_entry(t) for t in HEADLINE_FORMAT_TERMS],
+        "headline": [_headline_entry(h) for h in HEADLINE],
+        "warning_codes": [_warning_entry(w) for w in WARNING_CODES],
+        "warnings_cap": WARNINGS_CAP,
+    }
