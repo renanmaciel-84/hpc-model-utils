@@ -10,7 +10,7 @@ An external scheduler (ModelOps) drives each execution as a sequence of discrete
 | ------ | ------------------------------------ | ----------------------------------------- | ----- |
 | NEWAVE | NEWAVE deck zip (`caso.dat`, `arquivos.dat`) | `mpiexec` (Hydra)                | Runs the sintetizador step and the `nwlistcf`/`nwlistop` postprocessing. |
 | DECOMP | DECOMP deck zip (`dadger`)           | `mpiexec` (Hydra)                         | Runs the sintetizador step. A chained deck whose `FC NEWCUT` names the wrong NEWAVE stage fails in `preprocess` with `DATA_ERROR` (see [the notice](docs/notices/v2-fc-stage-mismatch.md)). |
-| cobre  | Native cobre case zip, with or without a top-level folder | `cobre-mpi` through `srun --mpi=pmix` | `cobre-mpi` is the only supported binary. `run cobre` requires `--max-cores-per-node`. After a successful run with a simulation phase it builds the cobre-bridge dashboard, published as `sintese/dashboard.html`; outside ModelOps, `run cobre` needs `--synthesis-bin <path to cobre-bridge>`, or such a run ends `RUNTIME_ERROR` (`core.synthesis_missing`). |
+| cobre  | Native cobre case zip, with or without a top-level folder | `novomodelo-mpi` through `srun --mpi=pmix` | `novomodelo-mpi` is the only supported binary (the novomodelo fork's MPI build). `run cobre` requires `--max-cores-per-node`. After a successful run with a simulation phase it builds the novomodelo-bridge dashboard, published as `sintese/dashboard.html`; outside ModelOps, `run cobre` needs `--synthesis-bin <path to novomodelo-bridge>`, or such a run ends `RUNTIME_ERROR` (`core.synthesis_missing`). |
 
 cobre is not yet validated on the production cluster.
 
@@ -78,7 +78,7 @@ A command that a signal ends exits with 128 plus the signal number. An expected 
 ## Logs and artifacts
 
 - `saidas/logs/<phase>-<jobid>.out`: the log of each SLURM job.
-- `saidas/logs/synthesis.out`: the output of the synthesis step (sintetizador for NEWAVE and DECOMP, cobre-bridge for cobre).
+- `saidas/logs/synthesis.out`: the output of the synthesis step (sintetizador for NEWAVE and DECOMP, novomodelo-bridge for cobre).
 - `sintese/dashboard.html`: the cobre results dashboard, one HTML file that loads plotly.js from `cdn.plot.ly` when opened, so viewing it needs internet access.
 - `saidas/run.json`: the run record, with the status, the reason and the rule that produced it.
 
@@ -89,6 +89,8 @@ A command that a signal ends exits with 128 plus the signal number. An expected 
 Requires Python 3.12+ and [uv](https://docs.astral.sh/uv/).
 
 On a cluster, the workflows install the tool through `deploy/modelops/scripts/ensure-tools.sh`. It installs each tool once, into `<root>/<tool>/<sha40>/`, pinned by release tag plus the 40-hex commit SHA, with `uv sync --frozen --no-dev`. Installed directories are immutable.
+
+A tool can also be installed by tag alone, with `--tool-tag` in place of `--tool`. Its first run records the tag's commit in `<root>/.tags/<name>/<tag>`, and later runs reuse that record and run no git. The install is still immutable per commit, in `<root>/<name>/<sha40>/`, and a tag that later moves to another commit is never picked up silently: installing it fails until its record is removed, and removing the record resolves the tag again. The tool must also report the tag's version: for tag `vX.Y.Z`, `<command> --version` must print exactly `<command> X.Y.Z`.
 
 For a manual install, check out a release tag and sync the locked environment:
 

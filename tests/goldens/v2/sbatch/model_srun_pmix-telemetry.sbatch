@@ -19,7 +19,7 @@ rm -f <WS>/.hpcmu/jobs/model.exit
 srun --overlap --nodes="${SLURM_JOB_NUM_NODES:-?}" --ntasks="${SLURM_JOB_NUM_NODES:-?}" --ntasks-per-node=1 --cpus-per-task=1 --cpu-bind=none --mpi=none --kill-on-bad-exit=0 --input=none --wait=0 --job-name=hpcmu-telemetry --output=<WS>/.hpcmu/telemetry/model-%j-r"${SLURM_RESTART_COUNT:-0}"-%t.log /opt/hpcmu/python -I -m hpc_model_utils.infra.telemetry.sampler --staging <WS>/.hpcmu/telemetry --phase model --workspace <WS> --interval 5 --workspace-interval 60 --tool-version 9.9.9 > <WS>/.hpcmu/telemetry/model-"${SLURM_JOB_ID:-?}"-r"${SLURM_RESTART_COUNT:-0}"-srun.log 2>&1 & disown
 export LD_LIBRARY_PATH=/opt/mpich/lib${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}
 export FI_PROVIDER=efa
-srun --mpi=pmix --ntasks-per-node=1 --cpus-per-task="$SLURM_CPUS_PER_TASK" --kill-on-bad-exit=1 <WS>/assets/cobre-mpi run <WS> --threads 96 --comm-backend mpi
+srun --mpi=pmix --ntasks-per-node=1 --cpus-per-task="$SLURM_CPUS_PER_TASK" --kill-on-bad-exit=1 <WS>/assets/novomodelo-mpi run <WS> --threads 96 --comm-backend mpi
 rc=$?
 printf '%s\n' "$rc" > <WS>/.hpcmu/jobs/model.exit
 exit "$rc"

@@ -2,7 +2,7 @@
 ``finalize`` job-side step.
 
 ``finalize`` diagnoses the model job, runs postprocess and the
-synthesis tool (sintetizador for NEWAVE and DECOMP, cobre-bridge for
+synthesis tool (sintetizador for NEWAVE and DECOMP, novomodelo-bridge for
 cobre) on ``SUCCESS`` only, always realizes outputs, and writes
 ``.hpcmu/finalize.json`` once via ``write_atomic`` -- never
 ``state.json``, which the login side owns (ticket-038 ingests this

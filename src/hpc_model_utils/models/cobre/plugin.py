@@ -2,12 +2,12 @@
 plugin for a new model (ticket-068, reworked by ticket-068a).
 
 The deck concerns (case detection, study info, input files) live in
-``case`` and the static ``cobre-mpi`` check lives here; the comm and
+``case`` and the static ``novomodelo-mpi`` check lives here; the comm and
 solver facts are verified in the model job (tickets 069 and 070).
 ``launch``, ``diagnose`` and ``outputs`` delegate to the sibling
 ``launch``, ``diagnosis`` and ``outputs`` modules (tickets 069/070/071).
 ``synthesis_args`` delegates to ``outputs.dashboard_args``, the
-cobre-bridge dashboard (ADR-059, ticket-080c). ``prepare``,
+novomodelo-bridge dashboard (ADR-059, ticket-080c). ``prepare``,
 ``postprocess``, ``fetch_parent`` and ``ingest_offline`` keep the ABC
 defaults. The plugin is registered in ``models.PLUGINS`` (ticket-072).
 """
@@ -30,6 +30,9 @@ from hpc_model_utils.models.cobre import case, diagnosis, launch, outputs
 
 logger = logging.getLogger(__name__)
 
+# The pre-fork binary name, kept only to explain a stale versions upload.
+_LEGACY_BINARY = "cobre-mpi"
+
 
 def _read_head(path: Path) -> bytes:
     with path.open("rb") as handle:
@@ -38,7 +41,7 @@ def _read_head(path: Path) -> bytes:
 
 class CobrePlugin(ModelPlugin):
     name = "cobre"
-    executables = ExecutableSpec("cobre-mpi")
+    executables = ExecutableSpec(launch.MPI_BINARY)
     sanitize_encoding = False
     output_patterns: ClassVar[tuple[str, ...]] = case.OUTPUT_PATTERNS
     log_patterns = diagnosis.LOG_PATTERNS
@@ -70,22 +73,31 @@ class CobrePlugin(ModelPlugin):
         return outputs.dashboard_args(ws)
 
     def check_executables(self, ws: Workspace) -> None:
-        mpi = ws.assets / "cobre-mpi"
+        name = launch.MPI_BINARY
+        mpi = ws.assets / name
         if not (mpi.exists() or mpi.is_symlink()):
-            raise DataError("cobre-mpi missing from the fetched versoes files")
+            legacy = ws.assets / _LEGACY_BINARY
+            if legacy.exists() or legacy.is_symlink():
+                raise DataError(
+                    f"{name} missing from the fetched versoes files "
+                    f"(found {_LEGACY_BINARY}: re-upload this version "
+                    f"from a {name} build)"
+                )
+            raise DataError(f"{name} missing from the fetched versoes files")
         if (
             mpi.is_symlink()
             or not mpi.is_file()
             or not mpi.stat().st_mode & stat.S_IXUSR
         ):
-            raise DataError("cobre-mpi is not an executable regular file")
+            raise DataError(f"{name} is not an executable regular file")
         try:
             head = _read_head(mpi)
         except OSError as err:
-            raise DataError("cobre-mpi cannot be read") from err
+            raise DataError(f"{name} cannot be read") from err
         if head != b"\x7fELF":
-            raise DataError("cobre-mpi is not an ELF executable")
+            raise DataError(f"{name} is not an ELF executable")
         logger.info(
-            "cobre-mpi: regular ELF executable; "
-            "comm and solver are verified in the model job"
+            "%s: regular ELF executable; "
+            "comm and solver are verified in the model job",
+            name,
         )

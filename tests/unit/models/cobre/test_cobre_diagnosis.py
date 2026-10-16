@@ -187,6 +187,12 @@ def _write_raw(ws: Workspace, relative: str, data: bytes) -> None:
             "cobre exited 6",
         ),
         (
+            101,
+            RunStatus.RUNTIME_ERROR,
+            "cobre.unexpected_exit",
+            "cobre exited 101",
+        ),
+        (
             137,
             RunStatus.RUNTIME_ERROR,
             "cobre.unexpected_exit",
@@ -230,7 +236,7 @@ def test_backend_missing_line_is_mpi_not_started(
     assert diag.rule_id == "cobre.mpi_not_started"
     assert "no Backend line" in diag.annotation()
     assert diag.reason == (
-        f"cobre-mpi exited {code} without reporting an MPI backend "
+        f"novomodelo-mpi exited {code} without reporting an MPI backend "
         "(no Backend line); check the cobre MPICH, PMIx and EFA"
     )
 
@@ -1238,8 +1244,8 @@ def test_vocabulary_unknown_reason_adds_a_note_and_keeps_success(
     )
     assert diag.reason.startswith("training bogus_rule after 128 iterations")
     assert _details(diag, "training/metadata.json")[-1] == (
-        "termination_reason 'bogus_rule' is outside the cobre "
-        "v0.14.0-v0.18.0 vocabulary"
+        "termination_reason 'bogus_rule' is outside the verified cobre "
+        "vocabulary"
     )
 
 

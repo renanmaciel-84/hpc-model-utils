@@ -135,13 +135,14 @@
       "description": "Versao do cobre a ser utilizada",
       "name": "modelVersion",
       "type": "List",
-      "defaultValue": "v0.17.0",
+      "defaultValue": "v0.18.0",
       "visible": true,
       "regexPattern": "",
       "format": "",
       "order": 11,
       "options": [
-        "v0.17.0"
+        "v0.18.0",
+        "v0.18.1"
       ]
     },
     {
@@ -178,12 +179,12 @@
       "options": []
     },
     {
-      "description": "Diretorio versionado do cobre-bridge, capturado do ensure-utils",
+      "description": "Diretorio versionado do novomodelo-bridge, capturado do ensure-utils",
       "name": "synthesisToolDir",
       "type": "String",
       "defaultValue": "",
       "visible": false,
-      "regexPattern": "HPCMU_TOOL cobre-bridge (/\\S+)",
+      "regexPattern": "HPCMU_TOOL novomodelo-bridge (/\\S+)",
       "format": "{1}",
       "order": 15,
       "options": []
@@ -211,28 +212,6 @@
       "options": []
     },
     {
-      "description": "Versao do cobre-bridge a ser utilizada",
-      "name": "synthesisAppVersion",
-      "type": "String",
-      "defaultValue": "v0.17.0",
-      "visible": false,
-      "regexPattern": "",
-      "format": "",
-      "order": 18,
-      "options": []
-    },
-    {
-      "description": "Commit do cobre-bridge fixado junto com a versao",
-      "name": "synthesisAppSha",
-      "type": "String",
-      "defaultValue": "1b059ac505a8d57b6549c0a60411c41a9d7167cb",
-      "visible": false,
-      "regexPattern": "",
-      "format": "",
-      "order": 19,
-      "options": []
-    },
-    {
       "description": "Bucket com as versoes dos executaveis para serem utilizados",
       "name": "versionsBucket",
       "type": "String",
@@ -240,7 +219,7 @@
       "visible": false,
       "regexPattern": "",
       "format": "",
-      "order": 20,
+      "order": 18,
       "options": []
     },
     {
@@ -251,7 +230,7 @@
       "visible": true,
       "regexPattern": "",
       "format": "",
-      "order": 21,
+      "order": 19,
       "options": []
     }
   ],

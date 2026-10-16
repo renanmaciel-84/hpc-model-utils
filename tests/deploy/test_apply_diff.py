@@ -27,6 +27,7 @@ from deploy.modelops import apply as apply_module
 from deploy.modelops.apply import (
     _PIN_REPOS,
     _SYNTHESIS_TOOLS,
+    _TAG_TOOLS,
     _scrub,
     _sync,
     _verify_pin,
@@ -52,6 +53,7 @@ AKIA = "AKIAABCDEFGHIJKLMNOP"  # gitleaks:allow (fake key for redaction tests)
 STAMP = "\n[deploy/modelops " + "a" * 40 + "]"
 ANNOTATED_TAG = "v1.0.0"
 LIGHTWEIGHT_TAG = "v1.0.1"
+BRIDGE = "novomodelo-bridge"
 REPO_ROOT = Path(__file__).resolve().parents[2]
 MODELOPS = REPO_ROOT / "deploy" / "modelops"
 _GIT_TIMEOUT = 60
@@ -861,7 +863,7 @@ def test_pin_repository_without_a_mapping_entry_prints_missing(
 
 @pytest.mark.parametrize(
     ("model", "tool"),
-    [("decomp", "sintetizador-decomp"), ("cobre", "cobre-bridge")],
+    [("decomp", "sintetizador-decomp"), ("newave", "sintetizador-newave")],
 )
 def test_pin_synthesis_repository_follows_the_model_name_default(
     fake: FakeModelOpsServer,
@@ -1013,12 +1015,177 @@ def test_pin_verify_git_failure_is_missing_not_skipped(
     assert status.startswith("MISSING (")
 
 
+def _tag_tool_flow(defs: Defs, commit: str, options: list[str]) -> None:
+    defs.set_params(
+        utilsAppVersion=ANNOTATED_TAG,
+        utilsAppSha=commit,
+        modelName="cobre",
+        modelVersion=options[0] if options else "",
+    )
+
+    def change(doc: dict[str, Any]) -> None:
+        (param,) = [p for p in doc["parameters"] if p["name"] == "modelVersion"]
+        param["type"] = "List"
+        param["options"] = options
+
+    defs.edit("workflows/flow.json", change)
+
+
+def test_pin_tag_tool_resolves_every_model_version_option_to_its_commit(
+    fake: FakeModelOpsServer,
+    defs: Defs,
+    remote: Remote,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    _tag_tool_flow(defs, remote.commit, [LIGHTWEIGHT_TAG, ANNOTATED_TAG])
+    _seed(fake, defs)
+
+    code, lines, _ = _run(
+        fake,
+        defs,
+        capsys,
+        repos={"hpc-model-utils": remote.url, BRIDGE: remote.url},
+    )
+
+    assert [x for x in lines if x.startswith("PIN ")] == [
+        f"PIN {ANNOTATED_TAG} {remote.commit[:12]} ok",
+        f"PIN {BRIDGE} {LIGHTWEIGHT_TAG} {remote.commit[:12]} resolved",
+        f"PIN {BRIDGE} {ANNOTATED_TAG} {remote.commit[:12]} resolved",
+    ]
+    assert code == 0
+
+
+def test_pin_tag_tool_unknown_tag_prints_missing_and_exits_1(
+    fake: FakeModelOpsServer,
+    defs: Defs,
+    remote: Remote,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    _tag_tool_flow(defs, remote.commit, [ANNOTATED_TAG, "v9.9.9"])
+    _seed(fake, defs)
+
+    code, lines, _ = _run(
+        fake,
+        defs,
+        capsys,
+        repos={"hpc-model-utils": remote.url, BRIDGE: remote.url},
+    )
+
+    assert f"PIN {BRIDGE} v9.9.9 MISSING (tag not found)" in lines
+    assert (
+        f"PIN {BRIDGE} {ANNOTATED_TAG} {remote.commit[:12]} resolved" in lines
+    )
+    assert lines[-1].endswith(" 1 failures")
+    assert code == 1
+
+
+def test_pin_tag_tool_unreachable_repository_prints_missing_with_reason(
+    fake: FakeModelOpsServer,
+    defs: Defs,
+    remote: Remote,
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    _tag_tool_flow(defs, remote.commit, [ANNOTATED_TAG])
+    _seed(fake, defs)
+    absent = str(tmp_path / "absent.git")
+
+    code, lines, _ = _run(
+        fake,
+        defs,
+        capsys,
+        repos={"hpc-model-utils": remote.url, BRIDGE: absent},
+    )
+
+    (line,) = [x for x in lines if x.startswith(f"PIN {BRIDGE}")]
+    assert line.startswith(
+        f"PIN {BRIDGE} {ANNOTATED_TAG} MISSING (git ls-remote exit "
+    )
+    assert code == 1
+
+
+def test_pin_tag_tool_without_a_repository_entry_prints_missing(
+    fake: FakeModelOpsServer,
+    defs: Defs,
+    remote: Remote,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    _tag_tool_flow(defs, remote.commit, [ANNOTATED_TAG])
+    _seed(fake, defs)
+
+    code, lines, _ = _run(
+        fake, defs, capsys, repos={"hpc-model-utils": remote.url}
+    )
+
+    assert (
+        f"PIN {BRIDGE} {ANNOTATED_TAG} MISSING (no repository for {BRIDGE})"
+    ) in lines
+    assert code == 1
+
+
+@pytest.mark.parametrize(
+    ("options", "line"),
+    [
+        (
+            [ANNOTATED_TAG, "main"],
+            "PIN flow: modelVersion option 'main' is not a vX.Y.Z tag",
+        ),
+        ([], "PIN flow: modelVersion offers no tag"),
+    ],
+)
+def test_pin_tag_tool_option_that_is_not_a_tag_fails_without_git(
+    fake: FakeModelOpsServer,
+    defs: Defs,
+    remote: Remote,
+    capsys: pytest.CaptureFixture[str],
+    options: list[str],
+    line: str,
+) -> None:
+    _tag_tool_flow(defs, remote.commit, options)
+    _seed(fake, defs)
+
+    code, lines, _ = _run(
+        fake,
+        defs,
+        capsys,
+        repos={"hpc-model-utils": remote.url, BRIDGE: remote.url},
+    )
+
+    assert line in lines
+    assert lines[-1].endswith(" 1 failures")
+    assert code == 1
+
+
+def test_pin_tag_tool_runs_only_for_its_model(
+    fake: FakeModelOpsServer,
+    defs: Defs,
+    remote: Remote,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    _tag_tool_flow(defs, remote.commit, ["main"])
+    defs.set_params(modelName="decomp")
+    _seed(fake, defs)
+
+    code, lines, _ = _run(
+        fake, defs, capsys, repos={"hpc-model-utils": remote.url}
+    )
+
+    assert [x for x in lines if x.startswith("PIN ")] == [
+        f"PIN {ANNOTATED_TAG} {remote.commit[:12]} ok"
+    ]
+    assert code == 0
+
+
+def test_pin_tag_tools_map_cobre_to_the_bridge_and_its_model_version() -> None:
+    assert dict(_TAG_TOOLS) == {"cobre": (BRIDGE, "modelVersion")}
+
+
 def test_pin_production_repositories_are_the_four_github_projects() -> None:
     assert dict(_PIN_REPOS) == {
         "hpc-model-utils": "https://github.com/rjmalves/hpc-model-utils.git",
         "sintetizador-newave": "https://github.com/rjmalves/sintetizador-newave.git",
         "sintetizador-decomp": "https://github.com/rjmalves/sintetizador-decomp.git",
-        "cobre-bridge": "https://github.com/cobre-rs/cobre-bridge.git",
+        "novomodelo-bridge": "https://github.com/ons-ccee-epe/novomodelo-bridge.git",
     }
 
 
@@ -1026,7 +1193,6 @@ def test_pin_synthesis_tools_map_each_model() -> None:
     assert dict(_SYNTHESIS_TOOLS) == {
         "newave": "sintetizador-newave",
         "decomp": "sintetizador-decomp",
-        "cobre": "cobre-bridge",
     }
 
 

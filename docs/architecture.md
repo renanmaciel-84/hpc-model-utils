@@ -296,7 +296,7 @@ sequenceDiagram
 The job-side step is
 `src/hpc_model_utils/core/lifecycle/finalize.py::finalize`. It diagnoses the
 model job; runs postprocess and the synthesis step (sintetizador for NEWAVE
-and DECOMP, `cobre-bridge dashboard` for cobre) only on `SUCCESS`; always
+and DECOMP, `novomodelo-bridge dashboard` for cobre) only on `SUCCESS`; always
 realizes the output plan; and writes `finalize.json` once. A synthesis tool
 that exits non-zero or a postprocess that raises keeps `SUCCESS` but records
 the failure in the reason and the evidence. A missing synthesis tool becomes
@@ -455,9 +455,9 @@ to the repository root.
 2. **Write the skeleton.** Create `src/hpc_model_utils/models/cobre/` with a
    thin `plugin.py` and one module per concern.
    `src/hpc_model_utils/models/cobre/plugin.py::CobrePlugin` sets
-   `name`, `executables = ExecutableSpec("cobre-mpi")` and
-   `sanitize_encoding = False`, and delegates every method to a sibling
-   module. The deck readers in
+   `name`, `executables = ExecutableSpec(launch.MPI_BINARY)`
+   (`novomodelo-mpi`) and `sanitize_encoding = False`, and delegates every
+   method to a sibling module. The deck readers in
    `src/hpc_model_utils/models/cobre/case.py` work from the zip member list,
    so a flat deck and a deck under one top folder are read the same way, and
    every missing or malformed file is a `DataError` naming a zip-relative path.
@@ -465,11 +465,11 @@ to the repository root.
    is a regular, executable ELF binary. It never runs the binary.
 3. **Write the launch.**
    `src/hpc_model_utils/models/cobre/launch.py::launch_spec` is a pure
-   derivation from `Resources`. cobre runs `cobre-mpi` only, and
+   derivation from `Resources`. cobre runs `novomodelo-mpi` only, and
    `--max-cores-per-node` is required: threads per node `T` is that value,
    nodes `K` is cores divided by `T`, and cores must be a multiple of `T`.
    Every node count uses the same single `SRUN_PMIX` launch,
-   `cobre-mpi run <case> --threads T --comm-backend mpi`, with one rank per
+   `novomodelo-mpi run <case> --threads T --comm-backend mpi`, with one rank per
    node. `--comm-backend mpi` makes a build without MPI exit instead of
    silently running locally.
 4. **Write the diagnosis, including the in-job self-check.** Model facts that
@@ -478,7 +478,7 @@ to the repository root.
    `src/hpc_model_utils/models/cobre/diagnosis.py::RULES` is an ordered table
    of `Rule` rows over a frozen
    `src/hpc_model_utils/models/cobre/diagnosis.py::CobreEvidence`, and the
-   first applicable row wins. The cobre-mpi `Backend:` and `Solver:` lines
+   first applicable row wins. The novomodelo-mpi `Backend:` and `Solver:` lines
    and the `HPCMU_SHAPE nodes=` line from the job prelude are the self-check:
    a run that exits without reporting an MPI backend is `RUNTIME_ERROR` with
    `cobre.mpi_not_started`. cobre never returns `INFEASIBLE`; an
@@ -498,7 +498,7 @@ to the repository root.
    `tests/support/cobre_case.py`, so no model data is vendored) and drive the
    full lifecycle under the fake Slurm in
    `tests/system/test_cobre_scenarios.py`. The scenarios plant a stub as
-   `cobre-mpi` and cover the one-node and multi-node launch, the rank-count
+   `novomodelo-mpi` and cover the one-node and multi-node launch, the rank-count
    mismatch, the missing-flag data error, the exit-code-to-status table, an
    incomplete simulation and the backend self-check.
 7. **Register the plugin and update the registry-pinned tests.** Add the
@@ -523,15 +523,20 @@ to the repository root.
 
 ### cobre runtime facts
 
-- The only cobre binary is `cobre-mpi`, and it runs on every node count.
+- The only cobre binary is `novomodelo-mpi` (the novomodelo fork's MPI
+  build), and it runs on every node count. Every offered cobre `modelVersion`
+  needs a `novomodelo-mpi` upload in the versions bucket; the upload steps
+  are in [the cobre rollout runbook](runbooks/cobre-rollout.md#upload-a-novomodelo-version).
 - `--max-cores-per-node` is required for cobre; a launch without it is a
   `DataError`.
 - The diagnosis never returns `INFEASIBLE`.
 - The summary labels the diagnosis reads (`Backend:`, `Solver:` and the
   stopping-rule names in `TERMINATION_REASONS`), the exit codes and the
-  metadata keys are pinned to cobre v0.14.0 through v0.18.0. Re-verify them
-  against cobre's own source on every cobre upgrade, and update
-  `src/hpc_model_utils/models/cobre/diagnosis.py` if they changed.
+  metadata keys were verified against cobre v0.14.0 through v0.18.0 and
+  novomodelo v0.18.0 and v0.18.1. A novomodelo release that changes any of
+  them needs a change to
+  `src/hpc_model_utils/models/cobre/diagnosis.py` before its version is
+  offered.
 - From v0.18.0, a SIGTERM or SIGINT during training makes cobre stop at the
   next iteration boundary, write the training outputs and the policy
   checkpoint, and exit 5. The diagnosis reads those outputs and reports
@@ -540,9 +545,17 @@ to the repository root.
 - v0.18.0 names the release in `training/metadata.json` as
   `software_version` (`cobre_version` before it); the diagnosis reads
   either.
-- The dashboard comes from cobre-bridge `v0.17.0`, pinned in the cobre
-  workflow as `synthesisAppVersion`/`synthesisAppSha` and installed by
-  `ensure-utils`; it runs only when `output/simulation/` exists
-  (`src/hpc_model_utils/models/cobre/outputs.py::dashboard_args`);
-  cobre-bridge requires `cobre-python` below 0.18, so re-pin it with every
-  cobre upgrade.
+- The dashboard comes from `ons-ccee-epe/novomodelo-bridge` at the tag
+  equal to the run's `modelVersion`, installed by `ensure-utils` through
+  `ensure-tools.sh --tool-tag`. The first run of a version resolves that
+  tag on the cluster and records its commit in
+  `<tools-root>/.tags/novomodelo-bridge/<tag>`; later runs reuse the
+  record, and the run's `HPCMU_TOOL` path shows the commit. The bridge must
+  report the same version on `--version`. It runs only when
+  `output/simulation/` exists
+  (`src/hpc_model_utils/models/cobre/outputs.py::dashboard_args`). Adding a
+  cobre version needs no change in this repository: release novomodelo and
+  novomodelo-bridge with the same tag, run Upload Versão with the
+  `novomodelo-mpi` build, and add the option to `modelVersion` in the
+  ModelOps UI; the next apply folds it. A release that changes a contract
+  in these cobre runtime facts needs a change in this repository first.

@@ -47,7 +47,7 @@ _SAMPLES: dict[str, tuple[str, ...]] = {
     "synthesisToolDir": (
         "HPCMU_TOOL sintetizador-newave /x/sintetizador-newave/" + "a" * 40,
         "HPCMU_TOOL sintetizador-decomp /x/sintetizador-decomp/" + "a" * 40,
-        "HPCMU_TOOL cobre-bridge /x/cobre-bridge/" + "a" * 40,
+        "HPCMU_TOOL novomodelo-bridge /x/novomodelo-bridge/" + "a" * 40,
     ),
 }
 

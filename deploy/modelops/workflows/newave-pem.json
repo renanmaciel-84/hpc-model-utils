@@ -279,18 +279,18 @@
   ],
   "workflowTasks": [
     {
-      "workflowTaskId": "d8a78a36-7908-4e1e-a045-95e2c34cfd51",
+      "workflowTaskId": "3af8b15c-bccf-4031-a866-232417da90ba",
       "alias": null,
-      "taskId": "@@task:ensure-tools@@",
+      "taskId": "@@task:create-workdir@@",
       "executionCriteria": "",
       "onFailure": 1,
       "hidden": false,
       "taskName": null
     },
     {
-      "workflowTaskId": "3af8b15c-bccf-4031-a866-232417da90ba",
+      "workflowTaskId": "d8a78a36-7908-4e1e-a045-95e2c34cfd51",
       "alias": null,
-      "taskId": "@@task:create-workdir@@",
+      "taskId": "@@task:ensure-tools@@",
       "executionCriteria": "",
       "onFailure": 1,
       "hidden": false,

@@ -63,7 +63,7 @@ def test_declarations_match_requirement_two() -> None:
 def test_declarations_executables_has_no_licence_or_normalizer() -> None:
     spec = CobrePlugin().executables
     assert isinstance(spec, ExecutableSpec)
-    assert spec.entrypoint == "cobre-mpi"
+    assert spec.entrypoint == "novomodelo-mpi"
     assert spec.license_files == ()
     assert spec.name_normalizer is None
 
@@ -467,7 +467,7 @@ def test_phases_missing_eco_deck_raises_data_error(tmp_path: Path) -> None:
 # -- check_executables (static probe) ----------------------------------
 
 _PASS_LINE = (
-    "cobre-mpi: regular ELF executable; "
+    "novomodelo-mpi: regular ELF executable; "
     "comm and solver are verified in the model job"
 )
 
@@ -504,7 +504,7 @@ def test_static_probe_empty_assets_raises_data_error(tmp_path: Path) -> None:
     ws, _ = _assets(tmp_path)
     with pytest.raises(
         DataError,
-        match=r"^cobre-mpi missing from the fetched versoes files$",
+        match=r"^novomodelo-mpi missing from the fetched versoes files$",
     ) as excinfo:
         CobrePlugin().check_executables(ws)
     _message(excinfo, tmp_path)
@@ -517,23 +517,37 @@ def test_static_probe_plain_cobre_alone_does_not_satisfy_the_check(
     write_elf_stub(assets, name="cobre")
     with pytest.raises(
         DataError,
-        match=r"^cobre-mpi missing from the fetched versoes files$",
+        match=r"^novomodelo-mpi missing from the fetched versoes files$",
     ) as excinfo:
+        CobrePlugin().check_executables(ws)
+    _message(excinfo, tmp_path)
+
+
+def test_static_probe_legacy_cobre_mpi_alone_names_the_reupload(
+    tmp_path: Path,
+) -> None:
+    ws, assets = _assets(tmp_path)
+    write_elf_stub(assets, name="cobre-mpi")
+    hint = (
+        "novomodelo-mpi missing from the fetched versoes files "
+        "(found cobre-mpi: re-upload this version from a novomodelo-mpi build)"
+    )
+    with pytest.raises(DataError, match=f"^{re.escape(hint)}$") as excinfo:
         CobrePlugin().check_executables(ws)
     _message(excinfo, tmp_path)
 
 
 def _defect_symlink(assets: Path) -> None:
     real = write_elf_stub(assets, name="cobre-real")
-    (assets / "cobre-mpi").symlink_to(real)
+    (assets / "novomodelo-mpi").symlink_to(real)
 
 
 def _defect_dangling(assets: Path) -> None:
-    (assets / "cobre-mpi").symlink_to(assets / "missing")
+    (assets / "novomodelo-mpi").symlink_to(assets / "missing")
 
 
 def _defect_directory(assets: Path) -> None:
-    (assets / "cobre-mpi").mkdir()
+    (assets / "novomodelo-mpi").mkdir()
 
 
 def _defect_not_executable(assets: Path) -> None:
@@ -561,7 +575,7 @@ def test_static_probe_not_a_regular_executable_raises_data_error(
     ws, assets = _assets(tmp_path)
     defect(assets)
     with pytest.raises(
-        DataError, match=r"^cobre-mpi is not an executable regular file$"
+        DataError, match=r"^novomodelo-mpi is not an executable regular file$"
     ) as excinfo:
         CobrePlugin().check_executables(ws)
     _message(excinfo, tmp_path)
@@ -576,11 +590,11 @@ def test_static_probe_not_an_elf_raises_data_error(
     tmp_path: Path, content: bytes
 ) -> None:
     ws, assets = _assets(tmp_path)
-    binary = assets / "cobre-mpi"
+    binary = assets / "novomodelo-mpi"
     binary.write_bytes(content)
     binary.chmod(0o755)
     with pytest.raises(
-        DataError, match=r"^cobre-mpi is not an ELF executable$"
+        DataError, match=r"^novomodelo-mpi is not an ELF executable$"
     ) as excinfo:
         CobrePlugin().check_executables(ws)
     _message(excinfo, tmp_path)
@@ -597,7 +611,7 @@ def test_static_probe_unreadable_file_raises_data_error_chained(
 
     monkeypatch.setattr(cobre_plugin_module, "_read_head", denied)
     with pytest.raises(
-        DataError, match=r"^cobre-mpi cannot be read$"
+        DataError, match=r"^novomodelo-mpi cannot be read$"
     ) as excinfo:
         CobrePlugin().check_executables(ws)
     assert isinstance(excinfo.value.__cause__, PermissionError)

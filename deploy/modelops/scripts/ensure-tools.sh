@@ -3,7 +3,8 @@
 #
 #   ensure-tools.sh --root <abs dir> --uv <abs file> --python <X.Y.Z>
 #       [--lock-timeout <seconds>]
-#       --tool <name> <repo-url> <tag> <sha40> <smoke-command> [--tool ...]
+#       { --tool <name> <repo-url> <tag> <sha40> <smoke-command>
+#       | --tool-tag <name> <repo-url> <tag> <smoke-command> } ...
 #
 # A cache hit (<root>/<name>/<sha40>/.ready) runs neither git nor uv and
 # writes nothing (ADR-030). A miss verifies the tag against the pinned SHA,
@@ -11,6 +12,16 @@
 # interpreter, and marks the directory ready and read-only. The
 # hpc-model-utils install also imports pyarrow.parquet through its own
 # interpreter (ADR-091).
+#
+# A --tool-tag tool pins no SHA. Its first run resolves the tag with git
+# ls-remote (the peeled commit of an annotated tag) under a per-tag lock and
+# records tag -> sha40 read-only in <root>/.tags/<name>/<tag>. Later runs
+# read the record and run no git, and the install stays keyed by, and checked
+# against, the recorded SHA, so a tag that moves later is never picked up
+# silently: installing it fails until the record is removed. A tag that is not
+# on the remote fails before any install. After install,
+# "<smoke-command> --version" must print exactly "<smoke-command> X.Y.Z" for
+# tag vX.Y.Z.
 #
 # stdout carries only "HPCMU_TOOL <name> <dir>" lines. A failure is exactly
 # one stderr line (ADR-050); git, uv and smoke-run output goes to the log
@@ -48,6 +59,7 @@ root=""
 uv=""
 python=""
 lock_timeout=1800
+modes=()
 names=()
 repos=()
 tags=()
@@ -72,12 +84,24 @@ while (($# > 0)); do
     --tool)
       (($# >= 6)) ||
         fail_usage "--tool needs <name> <repo-url> <tag> <sha40> <smoke-command>"
+      modes+=(pin)
       names+=("$2")
       repos+=("$3")
       tags+=("$4")
       shas+=("$5")
       cmds+=("$6")
       shift 6
+      ;;
+    --tool-tag)
+      (($# >= 5)) ||
+        fail_usage "--tool-tag needs <name> <repo-url> <tag> <smoke-command>"
+      modes+=(tag)
+      names+=("$2")
+      repos+=("$3")
+      tags+=("$4")
+      shas+=("")
+      cmds+=("$5")
+      shift 5
       ;;
     *)
       arg=${1:0:64}
@@ -97,23 +121,25 @@ done
   fail_usage "--python must be an exact patch version 3.X.Y"
 [[ $lock_timeout =~ $timeout_re ]] ||
   fail_usage "--lock-timeout must be a positive integer"
-((${#names[@]} > 0)) || fail_usage "at least one --tool is required"
+((${#names[@]} > 0)) || fail_usage "at least one --tool or --tool-tag is required"
 
 declare -A seen_names=()
 for i in "${!names[@]}"; do
   n=$((i + 1))
+  flag=--tool
+  [[ ${modes[i]} == pin ]] || flag=--tool-tag
   [[ ${names[i]} =~ $name_re ]] ||
-    fail_usage "--tool #$n: name must match [a-z][a-z0-9-]{0,63}"
+    fail_usage "$flag #$n: name must match [a-z][a-z0-9-]{0,63}"
   [[ ${repos[i]} =~ $https_re || ${repos[i]} =~ $file_re ]] ||
-    fail_usage "--tool #$n: repo-url must be https://<host>/<path> or file:///<path>"
+    fail_usage "$flag #$n: repo-url must be https://<host>/<path> or file:///<path>"
   [[ ${tags[i]} =~ $tag_re ]] ||
-    fail_usage "--tool #$n: tag must match vX.Y.Z (tags only, never branches)"
-  [[ ${shas[i]} =~ $sha_re ]] ||
-    fail_usage "--tool #$n: sha must be 40 lowercase hex characters"
+    fail_usage "$flag #$n: tag must match vX.Y.Z (tags only, never branches)"
+  [[ ${modes[i]} == tag || ${shas[i]} =~ $sha_re ]] ||
+    fail_usage "$flag #$n: sha must be 40 lowercase hex characters"
   [[ ${cmds[i]} =~ $name_re ]] ||
-    fail_usage "--tool #$n: smoke-command must match [a-z][a-z0-9-]{0,63}"
+    fail_usage "$flag #$n: smoke-command must match [a-z][a-z0-9-]{0,63}"
   [[ -z ${seen_names[${names[i]}]+x} ]] ||
-    fail_usage "--tool #$n: duplicate name ${names[i]}"
+    fail_usage "$flag #$n: duplicate name ${names[i]}"
   seen_names[${names[i]}]=1
 done
 
@@ -126,13 +152,19 @@ canonical=$(readlink -f -- "$root" </dev/null 2>/dev/null) ||
 readonly root uv python lock_timeout
 
 # State of the tool being ensured. The log is opened lazily: a successful hit
-# writes nothing.
+# writes nothing. A --tool-tag tool's t_sha stays empty until its tag
+# resolves, so messages and the log name use the tag until then. t_pin names
+# the SHA in messages: "pinned" for --tool, "recorded" for --tool-tag.
+t_mode=""
+t_pin=""
 t_name=""
 t_repo=""
 t_tag=""
 t_sha=""
 t_cmd=""
 t_dir=""
+t_record=""
+remote_sha=""
 log=""
 lock_fd=""
 fail_reason=""
@@ -151,17 +183,17 @@ fail_tool() {
       printf '%s\n' "$2" >>"$log"
     fi
   } 2>/dev/null || true
-  fail "$t_name@$t_sha: $1 (log: $log)"
+  fail "$t_name@${t_sha:-$t_tag}: $1 (log: $log)"
 }
 
 open_log() {
   local stamp
   stamp=$(date -u +%Y%m%dT%H%M%SZ </dev/null 2>/dev/null) ||
-    fail "$t_name@$t_sha: cannot read the clock"
-  log="$root/.logs/$t_name-$t_sha-$stamp-$$.log"
+    fail "$t_name@${t_sha:-$t_tag}: cannot read the clock"
+  log="$root/.logs/$t_name-${t_sha:-$t_tag}-$stamp-$$.log"
   mkdir -p -- "$root/.logs" </dev/null >/dev/null 2>&1 ||
     fail_tool "cannot create $root/.logs"
-  note "ensure-tools: $t_name@$t_sha tag=$t_tag repo=$t_repo pid=$$"
+  note "ensure-tools: $t_name@${t_sha:-$t_tag} tag=$t_tag repo=$t_repo pid=$$"
 }
 
 # Exclusive flock on $1, kept open in lock_fd until the caller closes it.
@@ -175,6 +207,14 @@ take_lock() {
     fail_tool "could not take the $what lock"
   fi
   lock_fd=$fd
+}
+
+require_commands() {
+  local required
+  for required in git flock; do
+    command -v "$required" >/dev/null 2>&1 ||
+      fail_tool "$required not found on PATH"
+  done
 }
 
 # ADR-044, R97: the venv interpreter and its pyvenv.cfg home must sit in the
@@ -237,21 +277,11 @@ verify_ready() {
   guard_venv
 }
 
-install_tool() {
-  local out sha ref peeled="" plain="" resolved head py_fd stamp
-
-  if [[ -L $t_dir ]]; then
-    note "== removing the partial install (symlink)"
-    rm -f -- "$t_dir" </dev/null >>"$log" 2>&1 ||
-      fail_tool "cannot remove the partial install"
-  elif [[ -e $t_dir ]]; then
-    note "== removing the partial install"
-    { chmod -R u+w -- "$t_dir" && rm -rf -- "$t_dir"; } </dev/null >>"$log" 2>&1 ||
-      fail_tool "cannot remove the partial install"
-  fi
-
-  # R131, F10: an annotated tag's plain line is the tag object; the peeled
-  # ^{} line is the commit and takes precedence.
+# R131, F10: an annotated tag's plain line is the tag object; the peeled
+# ^{} line is the commit and takes precedence. Sets remote_sha. Never call it
+# in $( ): fail_tool would exit only the subshell.
+remote_commit() {
+  local out sha ref peeled="" plain=""
   note "== git ls-remote $t_repo $t_tag"
   out=$(git ls-remote "$t_repo" "refs/tags/$t_tag" "refs/tags/$t_tag^{}" \
     </dev/null 2>>"$log") || fail_tool "git ls-remote failed"
@@ -263,11 +293,90 @@ install_tool() {
       plain=$sha
     fi
   done <<<"$out"
-  resolved=${peeled:-$plain}
-  [[ -n $resolved ]] || fail_tool "tag $t_tag not found on the remote"
-  if [[ $resolved != "$t_sha" ]]; then
-    note "tag $t_tag resolves to commit $resolved"
-    fail_tool "tag $t_tag does not resolve to the pinned SHA"
+  remote_sha=${peeled:-$plain}
+  [[ -n $remote_sha ]] || fail_tool "tag $t_tag not found on the remote"
+}
+
+# A tag record is valid when it names this tool, repo and tag and holds a
+# 40-hex SHA. Sets t_sha.
+read_record() {
+  local line tool="" repo="" tag="" sha=""
+  if [[ ! -f $t_record || ! -r $t_record ]]; then
+    fail_reason="tag record $t_record is not a readable file"
+    return 1
+  fi
+  while IFS= read -r line || [[ -n $line ]]; do
+    case $line in
+      tool=*) tool=${line#tool=} ;;
+      repo=*) repo=${line#repo=} ;;
+      tag=*) tag=${line#tag=} ;;
+      sha=*) sha=${line#sha=} ;;
+    esac
+  done <"$t_record"
+  if [[ $tool != "$t_name" || $repo != "$t_repo" || $tag != "$t_tag" ||
+    ! $sha =~ $sha_re ]]; then
+    fail_reason="tag record $t_record does not match this tool, repo and tag; remove it to resolve the tag again"
+    return 1
+  fi
+  t_sha=$sha
+}
+
+# A --tool-tag tool: read the tag record, or resolve the tag once under the
+# per-tag lock and write the record read-only (ADR-030: a hit runs no git and
+# opens no log). The record is written to a temporary file, made read-only and
+# renamed into place, so a reader without the lock sees no record or a whole
+# one. Never call it in $( ): fail_tool would exit only the subshell.
+resolve_tag() {
+  local tag_fd stamp tmp
+  t_record="$root/.tags/$t_name/$t_tag"
+  if [[ -e $t_record ]]; then
+    read_record || fail_tool "$fail_reason"
+    return 0
+  fi
+  open_log
+  require_commands
+  mkdir -p -- "$root/.locks" "$root/.tags/$t_name" </dev/null >>"$log" 2>&1 ||
+    fail_tool "cannot create $root/.tags/$t_name"
+  take_lock "$root/.locks/$t_name-tag-$t_tag.lock" tag
+  tag_fd=$lock_fd
+  # Double-checked locking: a concurrent run may have recorded the tag.
+  if [[ -e $t_record ]]; then
+    note "== resolved by a concurrent run"
+    read_record || fail_tool "$fail_reason"
+  else
+    remote_commit
+    stamp=$(date -u +%Y-%m-%dT%H:%M:%SZ </dev/null 2>>"$log") ||
+      fail_tool "cannot read the clock"
+    tmp="$t_record.tmp.$$"
+    {
+      printf 'tool=%s\nrepo=%s\ntag=%s\nsha=%s\nresolved_at=%s\n' \
+        "$t_name" "$t_repo" "$t_tag" "$remote_sha" "$stamp" >"$tmp"
+    } 2>>"$log" || fail_tool "cannot write the tag record"
+    { chmod a-w -- "$tmp" && mv -- "$tmp" "$t_record"; } </dev/null >>"$log" 2>&1 ||
+      fail_tool "cannot write the tag record"
+    t_sha=$remote_sha
+    note "== recorded $t_tag as $t_sha in $t_record"
+  fi
+  exec {tag_fd}>&-
+}
+
+install_tool() {
+  local head py_fd stamp version
+
+  if [[ -L $t_dir ]]; then
+    note "== removing the partial install (symlink)"
+    rm -f -- "$t_dir" </dev/null >>"$log" 2>&1 ||
+      fail_tool "cannot remove the partial install"
+  elif [[ -e $t_dir ]]; then
+    note "== removing the partial install"
+    { chmod -R u+w -- "$t_dir" && rm -rf -- "$t_dir"; } </dev/null >>"$log" 2>&1 ||
+      fail_tool "cannot remove the partial install"
+  fi
+
+  remote_commit
+  if [[ $remote_sha != "$t_sha" ]]; then
+    note "tag $t_tag resolves to commit $remote_sha"
+    fail_tool "tag $t_tag does not resolve to the $t_pin SHA"
   fi
 
   note "== git clone $t_tag"
@@ -278,7 +387,7 @@ install_tool() {
     fail_tool "git rev-parse HEAD failed in the clone"
   if [[ $head != "$t_sha" ]]; then
     note "cloned HEAD is $head"
-    fail_tool "cloned HEAD does not match the pinned SHA (did the tag move?)"
+    fail_tool "cloned HEAD does not match the $t_pin SHA (did the tag move?)"
   fi
 
   note "== uv python install $python"
@@ -311,6 +420,20 @@ install_tool() {
   "$t_dir/.venv/bin/$t_cmd" --help </dev/null >>"$log" 2>&1 ||
     fail_tool "smoke run '$t_cmd --help' failed"
 
+  # A --tool-tag tool must report its tag's version. Its output is untrusted:
+  # it goes only to the log. The subshell keeps the unset local; with stdout
+  # not a terminal, rich prints no control codes unless these force them.
+  if [[ $t_mode == tag ]]; then
+    note "== version check: $t_cmd --version"
+    version=$(
+      unset FORCE_COLOR TTY_COMPATIBLE TTY_INTERACTIVE
+      NO_COLOR=1 TERM=dumb "$t_dir/.venv/bin/$t_cmd" --version </dev/null 2>>"$log"
+    ) || fail_tool "version check '$t_cmd --version' failed"
+    note "$version"
+    [[ $version == "$t_cmd ${t_tag#v}" ]] ||
+      fail_tool "version check: '$t_cmd --version' does not report ${t_tag#v}"
+  fi
+
   if [[ $t_name == hpc-model-utils ]]; then
     note "== smoke import: pyarrow.parquet"
     "$t_dir/.venv/bin/python" -I -c 'import pyarrow.parquet' </dev/null >>"$log" 2>&1 ||
@@ -331,25 +454,28 @@ install_tool() {
 }
 
 ensure_one() {
-  local sha_fd required
-  t_name=$1
-  t_repo=$2
-  t_tag=$3
-  t_sha=$4
-  t_cmd=$5
-  t_dir="$root/$t_name/$t_sha"
+  local sha_fd
+  t_mode=$1
+  t_name=$2
+  t_repo=$3
+  t_tag=$4
+  t_sha=$5
+  t_cmd=$6
+  t_pin=pinned
   log=""
+  if [[ $t_mode == tag ]]; then
+    t_pin=recorded
+    resolve_tag
+  fi
+  t_dir="$root/$t_name/$t_sha"
 
   if [[ -e $t_dir/.ready ]]; then
     verify_ready || fail_tool "$fail_reason" "$fail_detail"
     return 0
   fi
 
-  open_log
-  for required in git flock; do
-    command -v "$required" >/dev/null 2>&1 ||
-      fail_tool "$required not found on PATH"
-  done
+  [[ -n $log ]] || open_log
+  require_commands
   mkdir -p -- "$root/.locks" </dev/null >>"$log" 2>&1 ||
     fail_tool "cannot create $root/.locks"
   take_lock "$root/.locks/$t_name-$t_sha.lock" install
@@ -365,7 +491,9 @@ ensure_one() {
 }
 
 for i in "${!names[@]}"; do
-  ensure_one "${names[i]}" "${repos[i]}" "${tags[i]}" "${shas[i]}" "${cmds[i]}"
+  ensure_one "${modes[i]}" "${names[i]}" "${repos[i]}" "${tags[i]}" \
+    "${shas[i]}" "${cmds[i]}"
+  shas[i]=$t_sha
 done
 
 for i in "${!names[@]}"; do

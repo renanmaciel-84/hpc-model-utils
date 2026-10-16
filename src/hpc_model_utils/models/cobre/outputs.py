@@ -8,7 +8,7 @@ and no raw file. ``output/stochastic/`` and ``output/hydro_models/``
 (opt-in exports) have no archive in ADR-038 and are never uploaded.
 
 ``dashboard_args`` (ticket-080c, ADR-059) is the cobre synthesis step:
-the ``cobre-bridge dashboard`` arguments finalize runs in ``ws.root``
+the ``novomodelo-bridge dashboard`` arguments finalize runs in ``ws.root``
 after a SUCCESS run. Its output ``sintese/dashboard.html`` is published
 under the same key by the ``sintese/`` loop of ``publish``. Without
 ``output/simulation/`` the command would only exit 1, so there are no
