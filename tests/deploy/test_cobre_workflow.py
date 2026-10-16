@@ -127,7 +127,14 @@ SHAPES: dict[str, tuple[str, str, bool, str, str, list[str]]] = {
         ["@@env:queueNewave@@", "@@env:queueDecomp@@", "@@env:queueCobre@@"],
     ),
     "modelName": ("String", "cobre", False, "", "", []),
-    "modelVersion": ("List", "v0.17.0", True, "", "", ["v0.17.0"]),
+    "modelVersion": (
+        "List",
+        "v0.18.0",
+        True,
+        "",
+        "",
+        ["v0.17.0", "v0.18.0", "v0.18.1"],
+    ),
     "path": (
         "String",
         "",

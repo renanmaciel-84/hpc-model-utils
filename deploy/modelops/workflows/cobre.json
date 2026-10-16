@@ -135,13 +135,15 @@
       "description": "Versao do cobre a ser utilizada",
       "name": "modelVersion",
       "type": "List",
-      "defaultValue": "v0.17.0",
+      "defaultValue": "v0.18.0",
       "visible": true,
       "regexPattern": "",
       "format": "",
       "order": 11,
       "options": [
-        "v0.17.0"
+        "v0.17.0",
+        "v0.18.0",
+        "v0.18.1"
       ]
     },
     {
