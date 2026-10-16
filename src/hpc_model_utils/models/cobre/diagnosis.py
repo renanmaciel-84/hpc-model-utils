@@ -27,16 +27,19 @@ from hpc_model_utils.core.diagnosis import (
 )
 from hpc_model_utils.core.errors import DataError
 from hpc_model_utils.core.workspace import Workspace
-from hpc_model_utils.models.cobre import case
+from hpc_model_utils.models.cobre import case, launch
 
 LOG_PATTERNS: tuple[LogPattern, ...] = ()
 
-# Pinned to cobre v0.14.0-v0.18.0: TERMINATION_REASONS are the RULE_*
-# constants of crates/cobre-sddp/src/convergence/stopping_rule.rs, and the
-# Backend/Solver patterns match the labels written by
-# crates/cobre-cli/src/summary.rs::print_execution_topology
-# (HPCMU_SHAPE comes from core.launch.render_prelude). Re-verify all of
-# them on every cobre upgrade.
+# Verified against cobre v0.14.0-v0.18.0 and novomodelo v0.18.0-v0.18.1:
+# TERMINATION_REASONS are the RULE_* constants of
+# crates/novomodelo-sddp/src/convergence/stopping_rule.rs
+# (crates/cobre-sddp/... before the fork), and the Backend/Solver patterns
+# match the labels written by
+# crates/novomodelo-cli/src/summary.rs::print_execution_topology
+# (crates/cobre-cli/... before the fork). HPCMU_SHAPE comes from
+# core.launch.render_prelude. A novomodelo version that changes any of them
+# needs a change here before it is offered.
 TERMINATION_REASONS = frozenset(
     {
         "iteration_limit",
@@ -52,9 +55,11 @@ SOLVER_LINE = re.compile(r"^\s*Solver:\s+(\S.*?)\s*$")
 BACKEND_MPI = re.compile(r"^MPI\b")
 
 # cobre's exits: 0 completed, 1-4 the CliError classes, and from v0.18.0
-# 5, a stop on request (crates/cobre-cli/src/commands/run/mod.rs::RunOutcome).
+# 5, a stop on request
+# (crates/novomodelo-cli/src/commands/run/mod.rs::RunOutcome).
 # A signal that arrives while the training outputs are written still exits
-# 5, with the metadata's own termination_reason.
+# 5, with the metadata's own termination_reason. novomodelo v0.18.1 exits
+# 101 on a panic (PANIC_EXIT_CODE), which is not a known exit.
 _STOPPED_ON_REQUEST = 5
 _KNOWN_EXITS = range(_STOPPED_ON_REQUEST + 1)
 _OUTPUT_EXITS = frozenset({0, _STOPPED_ON_REQUEST})
@@ -242,7 +247,7 @@ def _read_outputs(ws: Workspace) -> RunOutputs:
     ):
         notes = (
             f"termination_reason {training.termination_reason!r} is outside "
-            "the cobre v0.14.0-v0.18.0 vocabulary",
+            "the verified cobre vocabulary",
         )
     return RunOutputs(
         phases=phases,
@@ -355,7 +360,8 @@ _DIAGNOSTIC_RULES: tuple[Rule, ...] = (
     Rule(
         "cobre.mpi_not_started",
         RunStatus.RUNTIME_ERROR,
-        "cobre-mpi exited {code} without reporting an MPI backend ({seen}); "
+        launch.MPI_BINARY
+        + " exited {code} without reporting an MPI backend ({seen}); "
         "check the cobre MPICH, PMIx and EFA",
         _mpi_not_started,
     ),

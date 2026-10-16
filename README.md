@@ -10,7 +10,7 @@ An external scheduler (ModelOps) drives each execution as a sequence of discrete
 | ------ | ------------------------------------ | ----------------------------------------- | ----- |
 | NEWAVE | NEWAVE deck zip (`caso.dat`, `arquivos.dat`) | `mpiexec` (Hydra)                | Runs the sintetizador step and the `nwlistcf`/`nwlistop` postprocessing. |
 | DECOMP | DECOMP deck zip (`dadger`)           | `mpiexec` (Hydra)                         | Runs the sintetizador step. A chained deck whose `FC NEWCUT` names the wrong NEWAVE stage fails in `preprocess` with `DATA_ERROR` (see [the notice](docs/notices/v2-fc-stage-mismatch.md)). |
-| cobre  | Native cobre case zip, with or without a top-level folder | `cobre-mpi` through `srun --mpi=pmix` | `cobre-mpi` is the only supported binary. `run cobre` requires `--max-cores-per-node`. After a successful run with a simulation phase it builds the cobre-bridge dashboard, published as `sintese/dashboard.html`; outside ModelOps, `run cobre` needs `--synthesis-bin <path to cobre-bridge>`, or such a run ends `RUNTIME_ERROR` (`core.synthesis_missing`). |
+| cobre  | Native cobre case zip, with or without a top-level folder | `novomodelo-mpi` through `srun --mpi=pmix` | `novomodelo-mpi` is the only supported binary (the novomodelo fork's MPI build). `run cobre` requires `--max-cores-per-node`. After a successful run with a simulation phase it builds the cobre-bridge dashboard, published as `sintese/dashboard.html`; outside ModelOps, `run cobre` needs `--synthesis-bin <path to cobre-bridge>`, or such a run ends `RUNTIME_ERROR` (`core.synthesis_missing`). |
 
 cobre is not yet validated on the production cluster.
 

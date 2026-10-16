@@ -4,7 +4,7 @@ cobre end-to-end scenarios (ticket-072).
 The real ``CobrePlugin`` runs through ``core.lifecycle.run.run``, the
 executing fake SLURM (whose ``srun`` shim runs the command once), a
 local CLI shim over the real registry (so ``finalize cobre`` resolves
-the registered plugin) and ``publish``. ``assets/cobre-mpi`` is a
+the registered plugin) and ``publish``. ``assets/novomodelo-mpi`` is a
 Python stub with a baked-in payload: it records its call, prints the
 ``Execution`` lines cobre prints to stderr, writes the output tree and
 exits with a chosen code. The case itself is the synthetic one of
@@ -128,11 +128,12 @@ def _write_cli_shim(dest_dir: Path) -> Path:
 
 
 def _write_bridge_stub(dest_dir: Path, calls: Path, exit_code: int) -> Path:
-    """A ``cobre-bridge`` stub: it records its call; like ``build_dashboard``
-    it then creates the parent of the ``--output`` path and writes a
-    minimal HTML file, or fails with ``exit_code`` and writes nothing."""
+    """A ``novomodelo-bridge`` stub: it records its call; like
+    ``build_dashboard`` it then creates the parent of the ``--output`` path
+    and writes a minimal HTML file, or fails with ``exit_code`` and writes
+    nothing."""
     dest_dir.mkdir(parents=True, exist_ok=True)
-    stub = dest_dir / "cobre-bridge"
+    stub = dest_dir / "novomodelo-bridge"
     stub.write_text(
         f"#!{sys.executable}\n"
         f"CALLS = {str(calls)!r}\n"
@@ -200,7 +201,7 @@ def _payload(stub: _Stub, scratch: Path) -> dict[str, object]:
 
 def _write_stub(ws: Workspace, calls: Path, payload: dict[str, object]) -> None:
     ws.assets.mkdir(exist_ok=True)
-    binary = ws.assets / "cobre-mpi"
+    binary = ws.assets / "novomodelo-mpi"
     binary.write_text(
         f"#!{sys.executable}\n"
         f"CALLS = {str(calls)!r}\n"
@@ -309,7 +310,7 @@ def _expected_exports(tmp_path: Path) -> list[str]:
 
 def _expected_argv(ws: Workspace, threads: int) -> list[str]:
     return [
-        str(ws.assets / "cobre-mpi"),
+        str(ws.assets / "novomodelo-mpi"),
         "run",
         str(ws.root / "caso_cobre"),
         "--threads",

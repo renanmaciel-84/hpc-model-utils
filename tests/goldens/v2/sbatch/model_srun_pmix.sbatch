@@ -18,7 +18,7 @@ echo "HPCMU_SHAPE nodes=${SLURM_JOB_NUM_NODES:-?} cpus_on_node=${SLURM_CPUS_ON_N
 rm -f <WS>/.hpcmu/jobs/model.exit
 export LD_LIBRARY_PATH=/opt/mpich/lib${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}
 export FI_PROVIDER=efa
-srun --mpi=pmix --ntasks-per-node=1 --cpus-per-task="$SLURM_CPUS_PER_TASK" --kill-on-bad-exit=1 <WS>/assets/cobre-mpi run <WS> --threads 96 --comm-backend mpi
+srun --mpi=pmix --ntasks-per-node=1 --cpus-per-task="$SLURM_CPUS_PER_TASK" --kill-on-bad-exit=1 <WS>/assets/novomodelo-mpi run <WS> --threads 96 --comm-backend mpi
 rc=$?
 printf '%s\n' "$rc" > <WS>/.hpcmu/jobs/model.exit
 exit "$rc"

@@ -25,7 +25,7 @@ _FLAG_TEXT = (
     "max_cores_per_node, nodes K = cores / T (400 cores with 100 per node "
     "gives 4 nodes x 100 threads)"
 )
-_MISSING_TEXT = "cobre-mpi missing from the fetched cobre executables"
+_MISSING_TEXT = "novomodelo-mpi missing from the fetched cobre executables"
 _SRUN = (
     "srun --mpi=pmix --ntasks-per-node=1 "
     '--cpus-per-task="$SLURM_CPUS_PER_TASK" --kill-on-bad-exit=1 '
@@ -84,7 +84,7 @@ def _stray_cobre(assets: Path) -> None:
 
 
 def _directory(assets: Path) -> None:
-    (assets / "cobre-mpi").mkdir(parents=True)
+    (assets / "novomodelo-mpi").mkdir(parents=True)
 
 
 @pytest.mark.parametrize(
@@ -120,7 +120,7 @@ def test_shape_is_one_srun_pmix_spec_for_every_node_count(
     assert spec == LaunchSpec(
         Launcher.SRUN_PMIX,
         (
-            str(ws.assets / "cobre-mpi"),
+            str(ws.assets / "novomodelo-mpi"),
             "run",
             str(case_dir),
             "--threads",
@@ -134,7 +134,7 @@ def test_shape_is_one_srun_pmix_spec_for_every_node_count(
         prepend_mpich_lib=True,
         env={"FI_PROVIDER": "efa"},
     )
-    assert spec.argv[0].endswith("/assets/cobre-mpi")
+    assert spec.argv[0].endswith("/assets/novomodelo-mpi")
     assert spec.argv[2] == str(case_dir)
     assert spec.argv[-2:] == ("--comm-backend", "mpi")
 

@@ -1,5 +1,10 @@
 # Runbook: apply the cobre workflow definitions
 
+Note (2026-10-16): from hpc-model-utils v2.3.1, cobre runs the novomodelo
+fork's `novomodelo-mpi`. The `cobre-mpi` steps in this record describe the
+v0.17.0 rollout. To upload a new version, follow
+[Upload a novomodelo version](#upload-a-novomodelo-version).
+
 This runbook is the ticket-073 apply (ADR-058, ADR-057, ADR-050, ADR-051,
 ADR-054, R89 as amended 2026-10-05, R105, R131). It runs after the ticket-067c
 sweep. When it ends, the ModelOps catalog holds the workflow `cobre` and its
@@ -858,3 +863,98 @@ ticket that owns the failing part; no definition changes in this section.
 - **`cobre.rank_count_mismatch`** points at the PMIx wiring. That is ADR-057's
   rework trigger: escalate to the operator, and never switch the launcher
   silently.
+
+## Upload a novomodelo version
+
+From hpc-model-utils v2.3.1, cobre runs the `novomodelo-mpi` binary of the
+novomodelo fork (`ons-ccee-epe/novomodelo`), and the model keeps the name
+`cobre`. Every `modelVersion` the cobre workflow offers needs its own
+`novomodelo-mpi` upload under `versoes/cobre/v<version>/`. A fetched folder
+that holds only the pre-fork binary fails at fetch with a message that asks
+for this re-upload. `<version>` is the release number without the `v`, for
+example `0.18.1`.
+
+**Before offering the version:** a novomodelo release that changes the `run`
+arguments, the exit codes, the summary labels or the stopping-rule names needs
+an hpc-model-utils change first (`docs/architecture.md`, "cobre runtime
+facts"). Read that section, and compare the release's source with it, before
+the upload.
+
+The placeholders are the ones of the `## Upload Versão cobre option` section.
+Adding the version to `modelVersion` and to the bridge's tag rule is described
+in [docs/architecture.md](../architecture.md), not here.
+
+### Build the novomodelo-mpi zip
+
+On the head node or the workstation, in `<head-scratch>`.
+
+1. **Download** `novomodelo-mpi-<version>-x86_64-unknown-linux-gnu.tar.gz` from
+   `https://github.com/ons-ccee-epe/novomodelo/releases/tag/v<version>`,
+   confirming the name on that page. No other asset is needed. The archive
+   also holds the licence and notice files, and they are not delivered.
+2. **Check the archive** holds the binary. The member list shows
+   `./novomodelo-mpi`, and the command prints exactly `novomodelo-mpi`;
+   `members.txt` is the member list, for the evidence:
+
+   ```bash
+   tar -tzf novomodelo-mpi-<version>-x86_64-unknown-linux-gnu.tar.gz \
+     | tee members.txt | sed 's|^\./||' | grep -x novomodelo-mpi
+   ```
+
+3. **Record the archive hash and the binary hash,** and extract the binary:
+
+   ```bash
+   sha256sum novomodelo-mpi-<version>-x86_64-unknown-linux-gnu.tar.gz
+   tar -xzOf novomodelo-mpi-<version>-x86_64-unknown-linux-gnu.tar.gz ./novomodelo-mpi | sha256sum
+   tar -xzf novomodelo-mpi-<version>-x86_64-unknown-linux-gnu.tar.gz ./novomodelo-mpi
+   sha256sum novomodelo-mpi
+   ```
+
+   The second and fourth commands print the same hash: the binary hash.
+4. **Zip the binary alone** and check the zip:
+
+   ```bash
+   zip novomodelo-mpi-<version>.zip novomodelo-mpi
+   python3 -c 'import sys, zipfile; print(*zipfile.ZipFile(sys.argv[1]).namelist(), sep="\n")' novomodelo-mpi-<version>.zip
+   python3 -c 'import hashlib, sys, zipfile; print(hashlib.sha256(zipfile.ZipFile(sys.argv[1]).read("novomodelo-mpi")).hexdigest())' novomodelo-mpi-<version>.zip
+   ```
+
+   The listing prints exactly `novomodelo-mpi`, and the member hash equals the
+   binary hash. Without `zip`, `python3 -m zipfile -c novomodelo-mpi-<version>.zip novomodelo-mpi`
+   builds the same single-member zip. The zip does not keep the executable bit,
+   and that does not matter: `fetch-executables` sets it on every fetched file.
+5. **Copy the zip:**
+
+   ```bash
+   aws s3 cp novomodelo-mpi-<version>.zip <inputs-uri>/novomodelo-mpi-<version>.zip
+   ```
+
+### Run the novomodelo upload
+
+Run Upload Versão with `modelName` `cobre`, `modelVersion` `v<version>` and
+`executablesFile` `<inputs-uri>/novomodelo-mpi-<version>.zip`.
+
+```bash
+L="$EV/cobre/upload/execution-<execution-id>.log"
+jq -r .executionStatus "$EV/cobre/upload/execution-<execution-id>.json"
+grep -nF 'Using processor for model: cobre' "$L"
+grep -nF 'Found 1 files in ' "$L"
+grep -nF 'Will process: novomodelo-mpi -> novomodelo-mpi' "$L"
+aws s3 ls "s3://<versoes-bucket>/versoes/cobre/v<version>/"
+aws s3 cp "s3://<versoes-bucket>/versoes/cobre/v<version>/novomodelo-mpi" - | sha256sum
+```
+
+**Pass criterion:**
+
+- status `Success`;
+- the log has `Using processor for model: cobre`, `Found 1 files in ` (the
+  extraction directory follows) and
+  `Will process: novomodelo-mpi -> novomodelo-mpi`;
+- `aws s3 ls s3://<versoes-bucket>/versoes/cobre/v<version>/`
+  lists exactly one object, `novomodelo-mpi`;
+- `aws s3 cp s3://<versoes-bucket>/versoes/cobre/v<version>/novomodelo-mpi - | sha256sum`
+  equals the recorded binary hash.
+
+**If the run fails:** follow the failure list of the `### Upload run` section
+above, and read its `cobre-mpi` as `novomodelo-mpi`. Record the failure and do
+not offer the version.

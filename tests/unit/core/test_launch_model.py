@@ -542,7 +542,7 @@ def _cobre_golden_case(
     spec = LaunchSpec(
         launcher=Launcher.SRUN_PMIX,
         argv=(
-            str(ws.root / "assets" / "cobre-mpi"),
+            str(ws.root / "assets" / "novomodelo-mpi"),
             "run",
             str(ws.root),
             "--threads",

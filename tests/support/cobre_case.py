@@ -2,9 +2,10 @@
 
 No cobre fixture is vendored: the case is built in code, shaped after
 cobre's ``examples/1dtoy`` and the metadata structs of
-``crates/cobre-io/src/output/manifest.rs`` (v0.18.0 by default, v0.17.0 on
-request). Every builder writes only under the caller's ``tmp_path`` (or the
-directory it is handed).
+``crates/cobre-io/src/output/manifest.rs`` (novomodelo:
+``crates/novomodelo-io/src/output/manifest.rs``; v0.18.0 by default,
+v0.17.0 on request). Every builder writes only under the caller's
+``tmp_path`` (or the directory it is handed).
 """
 
 from __future__ import annotations
@@ -29,8 +30,9 @@ COBRE_EXECUTION_LINES: tuple[str, ...] = (
 )
 """The ``Execution`` block rank 0 prints to stderr before loading the case:
 cobre v0.17.0 and v0.18.0
-``crates/cobre-cli/src/summary.rs::print_execution_topology`` for an MPI
-backend (the model-log lines ticket-070 reads)."""
+``crates/cobre-cli/src/summary.rs::print_execution_topology`` (novomodelo:
+``crates/novomodelo-cli/src/summary.rs::print_execution_topology``) for an
+MPI backend (the model-log lines ticket-070 reads)."""
 
 
 def _json_bytes(data: object) -> bytes:
@@ -279,7 +281,7 @@ def write_outputs(
     return tuple(sorted(files))
 
 
-def write_elf_stub(assets: Path, *, name: str = "cobre-mpi") -> Path:
+def write_elf_stub(assets: Path, *, name: str = "novomodelo-mpi") -> Path:
     assets.mkdir(parents=True, exist_ok=True)
     path = assets / name
     path.write_bytes(b"\x7fELF\x02\x01\x01" + bytes(57))
