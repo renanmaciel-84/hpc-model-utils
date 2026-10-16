@@ -15,6 +15,7 @@ files, and the real values live only in an uncommitted environment file
 | `tasks/<slug>.sh` | The Task's script, verbatim, LF line endings |
 | `env/prd.example.json` | The environment file shape, dummy values only |
 | `scripts/` | Shell helpers, referenced from Task scripts by `@@script:FILE@@` |
+| `variants/telemetry-off/<slug>.sh` | The telemetry off lever (ADR-066): `run.sh` and `cobre-run.sh`, each its `tasks/` script plus `export HPCMU_TELEMETRY=off`; never rendered, copied over `tasks/` by an operator commit (`docs/runbooks/v2-final-repin.md`, `## Telemetry off lever`) |
 | `apply.py`, `modelops_api.py` | The operator CLI and its API client |
 
 Audit fields (`_id`, `createdBy`, `createdDate`, `lastChangeBy`,

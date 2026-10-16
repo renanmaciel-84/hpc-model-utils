@@ -176,6 +176,8 @@ FIXED_LINES = (
 DELIMITER = "HPCMU_{{CurrentExecution.ExecutionId}}"
 EXPORT_REGION = 'export AWS_DEFAULT_REGION="$AWS_REGION"'
 CHANGE_DIRECTORY = 'cd -- "$WORKDIR"'
+TELEMETRY_OFF = "export HPCMU_TELEMETRY=off"
+TELEMETRY_OFF_SLUGS = frozenset({"run", "cobre-run"})
 MKTEMP = 'WORKDIR=$(mktemp -d -p "$ROOT_PATH" -t "${MODEL}_XXXXXX")'
 ENSURE_TERMINATOR = "HPCMU_ENSURE_TOOLS_EOF"
 ENSURE_SCRIPT_LINE = "@@script:ensure-tools.sh@@"
@@ -355,6 +357,8 @@ def lint_script(slug: str, text: str) -> list[str]:
 
     defined = {item.variable for item in assignments} | {"HPCMU_EXECUTION_ID"}
     allowed_extra = {MKTEMP} if slug == "create-workdir" else set()
+    if slug in TELEMETRY_OFF_SLUGS:
+        allowed_extra.add(TELEMETRY_OFF)
     last = len(lines) - 1
     for index, line in enumerate(lines):
         number = index + 1
@@ -1079,6 +1083,7 @@ _STUB = """#!{bash}
 set -eu
 {{ printf '%s\\0' "$PWD" "${{AWS_DEFAULT_REGION-unset}}"; printf '%s\\0' "$@"; }} \\
   > "{calls}/$$"
+printf '%s' "${{HPCMU_TELEMETRY-unset}}" > "{telemetry}/$$"
 """
 
 
@@ -1113,6 +1118,13 @@ class Layout:
             for path in sorted((self.base / "calls").iterdir())
         ]
         return [Call(r[0], r[1], r[2:]) for r in records]
+
+    @property
+    def telemetry(self) -> list[str]:
+        return [
+            path.read_text(encoding="utf-8")
+            for path in sorted((self.base / "telemetry").iterdir())
+        ]
 
     def workdir(self, model: str = "newave") -> Path:
         return self.root / f"{model}_AbC123"
@@ -1166,13 +1178,17 @@ def layout() -> Iterator[Layout]:
             },
         )
         (base / "calls").mkdir()
+        (base / "telemetry").mkdir()
         sandbox.root.mkdir()
         for model in ("newave", "decomp"):
             sandbox.workdir(model).mkdir()
         stub = sandbox.tool_dir("hpc-model-utils") / ".venv" / "bin"
         stub.mkdir(parents=True)
         (stub / "hpc-model-utils").write_text(
-            _STUB.format(bash=bash, calls=base / "calls"), encoding="utf-8"
+            _STUB.format(
+                bash=bash, calls=base / "calls", telemetry=base / "telemetry"
+            ),
+            encoding="utf-8",
         )
         (stub / "hpc-model-utils").chmod(0o755)
         for model in ("newave", "decomp"):
@@ -1188,12 +1204,12 @@ def _run(
     model: str = "newave",
     locale: str = "C",
     wrapped: bool = False,
+    text: str | None = None,
 ) -> subprocess.CompletedProcess[str]:
     values = {**sandbox.values(model), **(overrides or {})}
-    script = prepare_command(
-        _render_env((TASKS / f"{slug}.sh").read_text("utf-8"), sandbox.env),
-        values,
-    )
+    if text is None:
+        text = (TASKS / f"{slug}.sh").read_text("utf-8")
+    script = prepare_command(_render_env(text, sandbox.env), values)
     if wrapped:
         script = "exec bash -c '" + script.replace("'", "'\"'\"'") + "'"
     return subprocess.run(
