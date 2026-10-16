@@ -90,6 +90,8 @@ Requires Python 3.12+ and [uv](https://docs.astral.sh/uv/).
 
 On a cluster, the workflows install the tool through `deploy/modelops/scripts/ensure-tools.sh`. It installs each tool once, into `<root>/<tool>/<sha40>/`, pinned by release tag plus the 40-hex commit SHA, with `uv sync --frozen --no-dev`. Installed directories are immutable.
 
+A tool can also be installed by tag alone, with `--tool-tag` in place of `--tool`. Its first run records the tag's commit in `<root>/.tags/<name>/<tag>`, and later runs reuse that record and run no git. The install is still immutable per commit, in `<root>/<name>/<sha40>/`, and a tag that later moves to another commit is never picked up silently: installing it fails until its record is removed, and removing the record resolves the tag again. The tool must also report the tag's version: for tag `vX.Y.Z`, `<command> --version` must print exactly `<command> X.Y.Z`.
+
 For a manual install, check out a release tag and sync the locked environment:
 
 ```bash

@@ -155,6 +155,10 @@ esac
 
 _SMOKE_STUB = r"""#!__BASH__
 printf '%s %s\n' "$(readlink "/proc/$$/fd/0" || true)" "$*" >>"$FAKE_SMOKE_CALLS"
+if [[ ${1:-} == --version ]]; then
+  printf '%s\n' "${FAKE_SMOKE_VERSION:-}"
+  exit 0
+fi
 echo "fake smoke stdout"
 echo "fake smoke stderr" >&2
 if [[ ${FAKE_UV_SMOKE_FAIL:-0} == 1 ]]; then
@@ -991,6 +995,281 @@ def test_ensure_tools_stdin_mode_prints_same_line(harness: Harness) -> None:
     assert from_file.stdout == piped.stdout
 
 
+def _tag_argv(
+    h: Harness, tag: str = ANNOTATED_TAG, name: str = TOOL
+) -> list[str]:
+    return [
+        "--root",
+        str(h.root),
+        "--uv",
+        str(h.uv),
+        "--python",
+        PYTHON,
+        "--tool-tag",
+        name,
+        h.remote.url,
+        tag,
+        SMOKE,
+    ]
+
+
+def _record(h: Harness, tag: str, name: str = TOOL) -> Path:
+    return h.root / ".tags" / name / tag
+
+
+@pytest.mark.parametrize("tag", _TAG_KINDS)
+def test_ensure_tools_tag_miss_records_the_commit_and_installs(
+    harness: Harness, tag: str
+) -> None:
+    result = harness.run(
+        _tag_argv(harness, tag),
+        extra_env={"FAKE_SMOKE_VERSION": f"{SMOKE} {tag[1:]}"},
+    )
+
+    assert result.returncode == 0, result.stderr
+    assert result.stdout == harness.line()
+    assert result.stderr == ""
+
+    record = _record(harness, tag)
+    lines = record.read_text().splitlines()
+    assert lines[:4] == [
+        f"tool={TOOL}",
+        f"repo={harness.remote.url}",
+        f"tag={tag}",
+        f"sha={harness.remote.commit}",
+    ]
+    assert len(lines) == 5
+    assert re.fullmatch(
+        r"resolved_at=\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z", lines[4]
+    )
+    assert record.stat().st_mode & 0o222 == 0
+    assert list(record.parent.iterdir()) == [record]
+    assert (harness.install_dir() / ".ready").is_file()
+    assert harness.smoke_calls.read_text().splitlines() == [
+        "/dev/null --help",
+        "/dev/null --version",
+    ]
+    assert [call["argv"][0] for call in _read_calls(harness.git_calls)] == [
+        "ls-remote",
+        "ls-remote",
+        "-c",
+        "-C",
+    ]
+
+
+def test_ensure_tools_tag_hit_makes_no_calls_and_writes_nothing(
+    harness: Harness,
+) -> None:
+    version = {"FAKE_SMOKE_VERSION": f"{SMOKE} {ANNOTATED_TAG[1:]}"}
+    first = harness.run(_tag_argv(harness), extra_env=version)
+    assert first.returncode == 0, first.stderr
+    harness.reset_calls()
+    before = _snapshot(harness.root)
+
+    second = harness.run(_tag_argv(harness), extra_env=version)
+
+    assert second.returncode == 0, second.stderr
+    assert second.stderr == ""
+    assert second.stdout == first.stdout == harness.line()
+    assert _read_calls(harness.git_calls) == []
+    assert _read_calls(harness.uv_calls) == []
+    assert not harness.smoke_calls.exists()
+    assert _snapshot(harness.root) == before
+
+
+def test_ensure_tools_tag_record_without_install_uses_the_recorded_sha(
+    harness: Harness,
+) -> None:
+    record = _record(harness, ANNOTATED_TAG)
+    record.parent.mkdir(parents=True)
+    record.write_text(
+        f"tool={TOOL}\nrepo={harness.remote.url}\ntag={ANNOTATED_TAG}\n"
+        f"sha={harness.remote.commit}\nresolved_at=2026-01-01T00:00:00Z\n"
+    )
+    record.chmod(0o444)
+    recorded = record.read_bytes()
+
+    result = harness.run(
+        _tag_argv(harness),
+        extra_env={"FAKE_SMOKE_VERSION": f"{SMOKE} {ANNOTATED_TAG[1:]}"},
+    )
+
+    assert result.returncode == 0, result.stderr
+    assert result.stdout == harness.line()
+    assert result.stderr == ""
+    # The install check's ls-remote, then the clone and the HEAD check: the
+    # recorded tag is not resolved again.
+    assert [call["argv"][0] for call in _read_calls(harness.git_calls)] == [
+        "ls-remote",
+        "-c",
+        "-C",
+    ]
+    assert all(
+        "== recorded " not in log.read_text() for log in _logs(harness.root)
+    )
+    assert record.read_bytes() == recorded
+
+
+def test_ensure_tools_tag_absent_fails_before_any_install(
+    harness: Harness,
+) -> None:
+    result = harness.run(
+        _tag_argv(harness, "v9.9.9"),
+        extra_env={"FAKE_SMOKE_VERSION": f"{SMOKE} 9.9.9"},
+    )
+
+    assert result.returncode == 1, result.stderr
+    assert result.stdout == ""
+    lines = result.stderr.splitlines()
+    assert len(lines) == 1, result.stderr
+    assert lines[0].startswith(
+        f"ensure-tools: {TOOL}@v9.9.9: tag v9.9.9 not found on the remote (log: "
+    )
+    _named_log(lines[0], harness)
+    assert not _record(harness, "v9.9.9").exists()
+    assert not (harness.root / TOOL).exists()
+    assert _read_calls(harness.uv_calls) == []
+
+
+def test_ensure_tools_tag_moved_after_record_fails(harness: Harness) -> None:
+    moved = "a" * 40
+    record = _record(harness, LIGHTWEIGHT_TAG)
+    record.parent.mkdir(parents=True)
+    record.write_text(
+        f"tool={TOOL}\nrepo={harness.remote.url}\ntag={LIGHTWEIGHT_TAG}\n"
+        f"sha={moved}\nresolved_at=2026-01-01T00:00:00Z\n"
+    )
+
+    result = harness.run(
+        _tag_argv(harness, LIGHTWEIGHT_TAG),
+        extra_env={"FAKE_SMOKE_VERSION": f"{SMOKE} {LIGHTWEIGHT_TAG[1:]}"},
+    )
+
+    line, log = _assert_runtime_failure(result, harness, moved)
+    assert f"tag {LIGHTWEIGHT_TAG} does not resolve to the recorded SHA" in line
+    assert f"resolves to commit {harness.remote.commit}" in log.read_text()
+    assert _read_calls(harness.uv_calls) == []
+
+
+def test_ensure_tools_tag_record_for_another_repo_fails(
+    harness: Harness,
+) -> None:
+    record = _record(harness, ANNOTATED_TAG)
+    record.parent.mkdir(parents=True)
+    text = (
+        f"tool={TOOL}\nrepo=file:///elsewhere.git\ntag={ANNOTATED_TAG}\n"
+        f"sha={harness.remote.commit}\nresolved_at=2026-01-01T00:00:00Z\n"
+    )
+    record.write_text(text)
+
+    result = harness.run(
+        _tag_argv(harness),
+        extra_env={"FAKE_SMOKE_VERSION": f"{SMOKE} {ANNOTATED_TAG[1:]}"},
+    )
+
+    assert result.returncode == 1, result.stderr
+    assert result.stdout == ""
+    lines = result.stderr.splitlines()
+    assert len(lines) == 1, result.stderr
+    assert lines[0].startswith(f"ensure-tools: {TOOL}@{ANNOTATED_TAG}: ")
+    assert "remove it to resolve the tag again" in lines[0]
+    assert _read_calls(harness.git_calls) == []
+    assert _read_calls(harness.uv_calls) == []
+    assert record.read_text() == text
+
+
+def test_ensure_tools_tag_version_mismatch_leaves_no_ready(
+    harness: Harness,
+) -> None:
+    result = harness.run(
+        _tag_argv(harness), extra_env={"FAKE_SMOKE_VERSION": f"{SMOKE} 0.9.0"}
+    )
+
+    line, log = _assert_runtime_failure(result, harness, harness.remote.commit)
+    assert f"version check: '{SMOKE} --version' does not report 1.0.0" in line
+    assert f"{SMOKE} 0.9.0" in log.read_text()
+    assert f"{SMOKE} 0.9.0" not in result.stderr
+    assert _record(harness, ANNOTATED_TAG).is_file()
+
+
+def test_ensure_tools_tag_and_pin_mix_print_in_argument_order(
+    harness: Harness,
+) -> None:
+    argv = [
+        *harness.argv(name="pinned-tool"),
+        "--tool-tag",
+        TOOL,
+        harness.remote.url,
+        ANNOTATED_TAG,
+        SMOKE,
+    ]
+
+    result = harness.run(
+        argv, extra_env={"FAKE_SMOKE_VERSION": f"{SMOKE} {ANNOTATED_TAG[1:]}"}
+    )
+
+    assert result.returncode == 0, result.stderr
+    assert result.stderr == ""
+    assert result.stdout == harness.line("pinned-tool") + harness.line()
+    assert not (harness.root / ".tags" / "pinned-tool").exists()
+    assert _record(harness, ANNOTATED_TAG).is_file()
+    # Only the --tool-tag install runs the version check.
+    assert harness.smoke_calls.read_text().splitlines() == [
+        "/dev/null --help",
+        "/dev/null --help",
+        "/dev/null --version",
+    ]
+
+
+def test_ensure_tools_tag_concurrent_first_runs_resolve_once(
+    harness: Harness,
+) -> None:
+    locks = harness.root / ".locks"
+    locks.mkdir(parents=True)
+    lock_file = locks / f"{TOOL}-tag-{ANNOTATED_TAG}.lock"
+    env = harness.env({"FAKE_SMOKE_VERSION": f"{SMOKE} {ANNOTATED_TAG[1:]}"})
+    argv = [str(harness.bash), str(SCRIPT), *_tag_argv(harness)]
+
+    with lock_file.open("a") as handle:
+        fcntl.flock(handle, fcntl.LOCK_EX)
+        procs = [
+            subprocess.Popen(
+                argv,
+                stdin=subprocess.DEVNULL,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                env=env,
+                text=True,
+            )
+            for _ in range(2)
+        ]
+        try:
+            # Both runs found no record and opened their logs, so both wait
+            # on the tag lock this test holds.
+            _wait_until(
+                lambda: len(_logs(harness.root)) == 2,
+                "both runs on the tag-resolution path",
+            )
+            fcntl.flock(handle, fcntl.LOCK_UN)
+            outputs = [proc.communicate(timeout=_TIMEOUT) for proc in procs]
+        finally:
+            for proc in procs:
+                if proc.poll() is None:
+                    proc.kill()
+                    proc.communicate(timeout=_TIMEOUT)
+
+    for proc, (stdout, stderr) in zip(procs, outputs, strict=True):
+        assert proc.returncode == 0, stderr
+        assert stderr == ""
+        assert stdout == harness.line()
+    log_texts = [log.read_text() for log in _logs(harness.root)]
+    assert len(log_texts) == 2
+    assert sum(t.count("== recorded ") for t in log_texts) == 1
+    assert sum(t.count("resolved by a concurrent run") for t in log_texts) == 1
+    argvs = [call["argv"][0] for call in _read_calls(harness.uv_calls)]
+    assert argvs == ["python", "sync"]
+
+
 _USAGE_CASES = (
     "missing_root",
     "relative_root",
@@ -1011,6 +1290,10 @@ _USAGE_CASES = (
     "branch_tag",
     "short_sha",
     "spaced_smoke_command",
+    "incomplete_tool_tag",
+    "tool_tag_branch",
+    "tool_tag_ssh_url",
+    "tool_tag_duplicate_of_tool",
 )
 
 
@@ -1071,6 +1354,24 @@ def _usage_argv(h: Harness, case: str) -> list[str]:
         ),
         "spaced_smoke_command": build(
             tools=["--tool", TOOL, url, ANNOTATED_TAG, sha, "demo cli"]
+        ),
+        "incomplete_tool_tag": build(
+            tools=["--tool-tag", TOOL, url, ANNOTATED_TAG]
+        ),
+        "tool_tag_branch": build(
+            tools=["--tool-tag", TOOL, url, "main", SMOKE]
+        ),
+        "tool_tag_ssh_url": build(
+            tools=[
+                "--tool-tag",
+                TOOL,
+                "git@example.com:org/repo.git",
+                ANNOTATED_TAG,
+                SMOKE,
+            ]
+        ),
+        "tool_tag_duplicate_of_tool": build(
+            tools=[*tool, "--tool-tag", TOOL, url, ANNOTATED_TAG, SMOKE]
         ),
     }
     return cases[case]
