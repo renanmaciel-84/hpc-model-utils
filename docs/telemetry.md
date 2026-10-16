@@ -292,7 +292,7 @@ Both Parquet files carry these keys in their key-value metadata.
 - Every rate is null on a counter decrease, on a missing baseline, or after a failed read of its source.
 - The /proc/stat CPU columns follow the per-line ADR-093 rule written into their meanings.
 - A source whose read fails leaves every column of that source null in that sample; its rates are also null in the next sample, which has no baseline.
-- A source with nothing to read (no job cgroup, a workspace not on an NFS mount, no EFA device) leaves its columns null and writes no error line.
+- A source with nothing to read (no step component in the sampler's cgroup path, a workspace not on an NFS mount, no EFA device) leaves its columns null and writes no error line.
 - A float that is not finite is written as null.
 - Every cgroup column is null when the header's job_cgroup is null.
 - A header field whose source cannot be read or parsed, a malformed Slurm variable included, is null.

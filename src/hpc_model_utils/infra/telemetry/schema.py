@@ -130,8 +130,9 @@ MEANING_CONVENTIONS: Final[tuple[str, ...]] = (
     "A source whose read fails leaves every column of that source null in "
     "that sample; its rates are also null in the next sample, which has no "
     "baseline.",
-    "A source with nothing to read (no job cgroup, a workspace not on an NFS "
-    "mount, no EFA device) leaves its columns null and writes no error line.",
+    "A source with nothing to read (no step component in the sampler's "
+    "cgroup path, a workspace not on an NFS mount, no EFA device) leaves its "
+    "columns null and writes no error line.",
     "A float that is not finite is written as null.",
     "Every cgroup column is null when the header's job_cgroup is null.",
     "A header field whose source cannot be read or parsed, a malformed Slurm "
