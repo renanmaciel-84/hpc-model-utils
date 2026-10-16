@@ -66,15 +66,19 @@ _PIN_REPOS: Mapping[str, str] = MappingProxyType(
         "sintetizador-decomp": (
             "https://github.com/rjmalves/sintetizador-decomp.git"
         ),
-        "cobre-bridge": "https://github.com/cobre-rs/cobre-bridge.git",
+        "novomodelo-bridge": (
+            "https://github.com/ons-ccee-epe/novomodelo-bridge.git"
+        ),
     }
 )
 _SYNTHESIS_TOOLS: Mapping[str, str] = MappingProxyType(
     {
         "newave": "sintetizador-newave",
         "decomp": "sintetizador-decomp",
-        "cobre": "cobre-bridge",
     }
+)
+_TAG_TOOLS: Mapping[str, tuple[str, str]] = MappingProxyType(
+    {"cobre": ("novomodelo-bridge", "modelVersion")}
 )
 _PINS = (
     ("utilsAppVersion", "utilsAppSha"),
@@ -355,10 +359,15 @@ def _identifier_gaps(live: Mapping[str, Mapping[str, Any]]) -> list[str]:
     return gaps
 
 
-def _verify_pin(
+class _TagUnresolvedError(Exception):
+    def __init__(self, status: str) -> None:
+        super().__init__(status)
+        self.status = status
+
+
+def _resolve_tag(
     repo: str,
     tag: str,
-    sha: str,
     *,
     runner: Callable[..., subprocess.CompletedProcess[str]] = subprocess.run,
 ) -> str:
@@ -376,18 +385,75 @@ def _verify_pin(
             env=env,
         )
     except (OSError, subprocess.TimeoutExpired) as exc:
-        return f"MISSING ({exc})"
+        raise _TagUnresolvedError(f"MISSING ({exc})") from exc
     if result.returncode != 0:
         reason = " ".join(result.stderr.split())[:200]
-        return f"MISSING (git ls-remote exit {result.returncode}: {reason})"
+        raise _TagUnresolvedError(
+            f"MISSING (git ls-remote exit {result.returncode}: {reason})"
+        )
     shas: dict[str, str] = {}
     for line in result.stdout.splitlines():
         found, _, ref = line.partition("\t")
         shas[ref] = found
     actual = shas.get(peeled_ref) or shas.get(f"refs/tags/{tag}")
     if actual is None:
-        return "MISSING (tag not found)"
+        raise _TagUnresolvedError("MISSING (tag not found)")
+    return actual
+
+
+def _verify_pin(
+    repo: str,
+    tag: str,
+    sha: str,
+    *,
+    runner: Callable[..., subprocess.CompletedProcess[str]] = subprocess.run,
+) -> str:
+    try:
+        actual = _resolve_tag(repo, tag, runner=runner)
+    except _TagUnresolvedError as exc:
+        return exc.status
     return "ok" if actual == sha else "MISMATCH"
+
+
+def _tag_lines(
+    slug: str,
+    workflow: Mapping[str, Any],
+    tool: tuple[str, str],
+    repos: Mapping[str, str],
+) -> tuple[list[str], int]:
+    name, param = tool
+    options = next(
+        (
+            p.get("options")
+            for p in workflow["parameters"]
+            if p["name"] == param
+        ),
+        None,
+    )
+    if not (isinstance(options, list) and options):
+        return [f"PIN {slug}: {param} offers no tag"], 1
+    lines: list[str] = []
+    failures = 0
+    for option in options:
+        if not (isinstance(option, str) and _TAG_RE.fullmatch(option)):
+            lines.append(
+                f"PIN {slug}: {param} option {option!r} is not a vX.Y.Z tag"
+            )
+            failures += 1
+        elif name not in repos:
+            lines.append(
+                f"PIN {name} {option} MISSING (no repository for {name})"
+            )
+            failures += 1
+        else:
+            try:
+                sha = _resolve_tag(repos[name], option)
+            except _TagUnresolvedError as exc:
+                lines.append(f"PIN {name} {option} {exc.status}")
+                failures += 1
+            else:
+                lines.append(f"PIN {name} {option} {sha[:12]} resolved")
+    return lines, failures
 
 
 def _pin_lines(
@@ -423,6 +489,11 @@ def _pin_lines(
             status = _verify_pin(repos[name], tag, sha)
         lines.append(f"PIN {tag} {sha[:12]} {status}")
         failures += status != "ok"
+    tag_tool = _TAG_TOOLS.get(params.get("modelName", ""))
+    if tag_tool is not None:
+        tag_lines, tag_failures = _tag_lines(slug, workflow, tag_tool, repos)
+        lines.extend(tag_lines)
+        failures += tag_failures
     return lines, failures
 
 

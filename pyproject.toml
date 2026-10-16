@@ -77,7 +77,7 @@ ignore = ["E501"]
 
 [tool.pytest.ini_options]
 markers = [
-  "integration: Integration tests requiring LocalStack (deselect with '-m \"not integration\"')",
+  "integration: Integration tests requiring LocalStack or network access (deselect with '-m \"not integration\"')",
   "slow: Slow tests that may take longer to run",
 ]
 timeout = 300
