@@ -6,7 +6,6 @@ from __future__ import annotations
 import hashlib
 import json
 import logging
-import os
 import re
 import subprocess
 import sys
@@ -42,17 +41,18 @@ from tests.support.decks import (
     decomp_workspace,
     input_zip,
 )
+from tests.support.launch_helpers import (
+    GOLDEN_TELEMETRY,
+    GOLDEN_TOOLS,
+    SBATCH_GOLDEN_DIR,
+    assert_matches_golden,
+    assert_sidecar_after_rm_exit,
+)
 from tests.support.object_store import RecordingObjectStore
 from tests.support.reporter import RecordingReporter
 
-_REGEN_ENV = "HPCMU_REGEN_GOLDENS"
-_GOLDEN_PATH = (
-    Path(__file__).resolve().parents[3]
-    / "goldens"
-    / "v2"
-    / "sbatch"
-    / "decomp_model.sbatch"
-)
+_GOLDEN_PATH = SBATCH_GOLDEN_DIR / "decomp_model.sbatch"
+_ON_GOLDEN_PATH = _GOLDEN_PATH.with_name("decomp_model-telemetry.sbatch")
 _PROJECTIONS_PATH = (
     Path(__file__).resolve().parents[3]
     / "goldens"
@@ -343,42 +343,41 @@ def test_decompplugin_synthesis_args_returns_expected_tuple(
 # -- AC2: the regenerable DECOMP-shaped golden ---------------------------
 
 
-def test_render_model_script_decomp_launch_matches_golden(
+def _decomp_golden_case(
     tmp_path: Path,
-) -> None:
+) -> tuple[Workspace, LaunchSpec, Resources, Toolchain]:
     root = tmp_path / "study-decomp"
     root.mkdir()
     ws = Workspace.at(root)
-    tools = Toolchain(
-        mpich_bin=Path("/opt/mpich/bin"),
-        slurm_bin=Path("/opt/slurm/bin"),
-        cli_bin=Path("/opt/hpcmu/bin"),
-    )
     res = Resources(
         queue="batch", cores=64, max_cores_per_node=32, time_limit_hours=24
     )
-    spec = DecompPlugin().launch(ws, res)
+    return ws, DecompPlugin().launch(ws, res), res, GOLDEN_TOOLS
+
+
+def test_render_model_script_decomp_launch_matches_golden(
+    tmp_path: Path,
+) -> None:
+    ws, spec, res, tools = _decomp_golden_case(tmp_path)
     rendered = render_model_script(ws, spec, res, tools)
-    normalized = rendered.replace(str(ws.root), "<WS>")
 
-    if os.environ.get(_REGEN_ENV) == "1":
-        _GOLDEN_PATH.parent.mkdir(parents=True, exist_ok=True)
-        _GOLDEN_PATH.write_text(normalized, encoding="utf-8")
-        pytest.fail(
-            f"{_REGEN_ENV}=1: regenerated {_GOLDEN_PATH}; "
-            "re-run without it to verify"
-        )
-
-    expected = _GOLDEN_PATH.read_text(encoding="utf-8")
-    assert normalized == expected
+    assert_matches_golden(rendered, ws, _GOLDEN_PATH, tmp_path)
     assert "#SBATCH --ntasks=64" in rendered
     assert "#SBATCH --ntasks-per-node=32" in rendered
     assert "#SBATCH --cpus-per-task=1" in rendered
     assert "LD_LIBRARY_PATH" not in rendered
 
-    script_path = tmp_path / "golden-check.sbatch"
-    script_path.write_text(rendered, encoding="utf-8")
-    subprocess.run(["bash", "-n", str(script_path)], check=True)
+
+def test_render_model_script_decomp_launch_telemetry_matches_golden(
+    tmp_path: Path,
+) -> None:
+    ws, spec, res, tools = _decomp_golden_case(tmp_path)
+    rendered = render_model_script(
+        ws, spec, res, tools, telemetry=GOLDEN_TELEMETRY
+    )
+
+    assert_matches_golden(rendered, ws, _ON_GOLDEN_PATH, tmp_path)
+    assert_sidecar_after_rm_exit(_ON_GOLDEN_PATH, _GOLDEN_PATH)
 
 
 # -- prepare: writes nothing (R20, D1, R54) --------------------------------

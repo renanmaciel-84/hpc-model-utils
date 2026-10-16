@@ -1,7 +1,17 @@
-"""ticket-036: writes the ``hpcmu-test-cli`` shim used as a system
-test's ``Toolchain.cli_bin``. The shim registers the fake plugin and
-then calls the real v2 CLI entry point; it is generated at test time,
-never committed, because its shebang is machine-specific.
+"""v2-plan ticket-036: writes the ``hpcmu-test-cli`` shim used as a
+system test's ``Toolchain.cli_bin``. The shim registers the fake plugin
+and then calls the real v2 CLI entry point; it is generated at test
+time, never committed, because its shebang is machine-specific.
+
+job-telemetry ticket-036 (ADR-081): ``Toolchain.python_bin`` is the
+``python`` next to ``cli_bin``, so both shim writers (this module's
+``write_cli_shim`` and the cobre scenarios' ``_write_cli_shim``) place
+that sibling through ``write_python_sibling``. The sibling is an exec
+wrapper around ``sys.executable``, not a symlink: a symlink outside the
+venv loses venv detection (``pyvenv.cfg`` is looked up relative to the
+link's own location), so the venv's site-packages and
+``hpc_model_utils`` would not load. For the same reason neither the
+helper nor the shims ever resolve the sibling or ``sys.executable``.
 
 ticket-043: the generated shim also registers the test-only
 ``engine-run-test`` command (``register_engine_run_test_command``
@@ -15,6 +25,7 @@ registers the command on the shared ``cli`` group.
 from __future__ import annotations
 
 import logging
+import shlex
 import sys
 from pathlib import Path
 
@@ -50,12 +61,22 @@ raise SystemExit(hpc_model_utils.cli.main())
 """
 
 
+def write_python_sibling(dest_dir: Path) -> Path:
+    sibling = dest_dir / "python"
+    sibling.write_text(
+        "#!/bin/sh\nexec " + shlex.quote(sys.executable) + ' "$@"\n'
+    )
+    sibling.chmod(0o755)
+    return sibling
+
+
 def write_cli_shim(dest_dir: Path) -> Path:
     shim_path = dest_dir / "hpcmu-test-cli"
     shim_path.write_text(
         _SHIM_TEMPLATE.format(python=sys.executable, repo_root=str(_REPO_ROOT))
     )
     shim_path.chmod(0o755)
+    write_python_sibling(dest_dir)
     return shim_path
 
 

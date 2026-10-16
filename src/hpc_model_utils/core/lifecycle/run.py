@@ -45,8 +45,10 @@ from hpc_model_utils.core.diagnosis import (
 from hpc_model_utils.core.errors import StateFormatError
 from hpc_model_utils.core.follow import FollowAborted, LogTail, follow
 from hpc_model_utils.core.launch import (
+    TELEMETRY_OFF,
     FinalizeInvocation,
     Resources,
+    TelemetryConfig,
     Toolchain,
     write_finalize_script,
     write_model_script,
@@ -93,10 +95,15 @@ class StatusReporter(Protocol):
 
 @dataclass(frozen=True, slots=True)
 class SubmitRequest:
+    """``telemetry`` defaults to ``TELEMETRY_OFF`` (ADR-082), so a
+    constructor that omits it renders today's job scripts. Revisit: if
+    a second production constructor appears, make the field required."""
+
     resources: Resources
     tools: Toolchain
     skip_model: bool
     synthesis_bin: Path | None
+    telemetry: TelemetryConfig = TELEMETRY_OFF
 
 
 class JobLedger:
@@ -160,7 +167,9 @@ def submit(
     model_id: str | None = None
     if not finalize_only:
         spec = plugin.launch(ws, req.resources)
-        model_script = write_model_script(ws, spec, req.resources, req.tools)
+        model_script = write_model_script(
+            ws, spec, req.resources, req.tools, telemetry=req.telemetry
+        )
         with blocked_signals():
             model_id = slurm.submit(model_script)
             ledger.add(model_id)
@@ -173,6 +182,7 @@ def submit(
         FinalizeInvocation(
             plugin.name, model_id, req.resources.cores, req.synthesis_bin
         ),
+        telemetry=req.telemetry,
     )
     with blocked_signals():
         finalize_id = slurm.submit(finalize_script, after=model_id)

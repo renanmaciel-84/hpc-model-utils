@@ -8,10 +8,15 @@ import pytest
 
 from hpc_model_utils.core.errors import UsageError
 from hpc_model_utils.core.workspace import Phase, Workspace
+from hpc_model_utils.infra.telemetry import schema
 
 
 def test_phase_members_are_model_and_finalize() -> None:
     assert {member.value for member in Phase} == {"model", "finalize"}
+
+
+def test_phase_values_equal_telemetry_schema_phases() -> None:
+    assert tuple(p.value for p in Phase) == schema.PHASES
 
 
 def test_workspace_at_property_access_does_not_create_hpcmu_dir(
@@ -27,6 +32,8 @@ def test_workspace_at_property_access_does_not_create_hpcmu_dir(
         ws.jobs_dir,
         ws.logs_dir,
         ws.outputs_dir,
+        ws.telemetry_dir,
+        ws.telemetry_outputs_dir,
         ws.model_exit_path,
         ws.legacy_status_path,
         ws.legacy_metadata_path,
@@ -47,6 +54,11 @@ def test_properties_return_expected_paths(tmp_path: Path) -> None:
     assert ws.jobs_dir == tmp_path / ".hpcmu" / "jobs"
     assert ws.logs_dir == tmp_path / ".hpcmu" / "logs"
     assert ws.outputs_dir == tmp_path / ".hpcmu" / "outputs"
+    assert ws.telemetry_dir == tmp_path / ".hpcmu" / "telemetry"
+    assert (
+        ws.telemetry_outputs_dir
+        == tmp_path / ".hpcmu" / "outputs" / "telemetry"
+    )
     assert ws.model_exit_path == ws.jobs_dir / "model.exit"
     assert ws.legacy_status_path == tmp_path / "status.modelops"
     assert ws.legacy_metadata_path == tmp_path / "metadata.modelops"
@@ -61,6 +73,8 @@ def test_ensure_layout_called_twice_creates_layout_without_error(
     assert ws.jobs_dir.is_dir()
     assert ws.logs_dir.is_dir()
     assert ws.outputs_dir.is_dir()
+    assert ws.telemetry_dir.is_dir()
+    assert ws.telemetry_outputs_dir.exists() is False
     assert ws.parent_dir.is_dir() is False
 
 

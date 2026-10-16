@@ -5,13 +5,15 @@ v2 ``publish`` (ticket-055).
 records the golden run sequence in ``state.json`` and ``finalize.json``
 and publishes it to an in-memory store. The contract suites then compare
 the uploaded objects with the frozen goldens. Every value is public
-fixture data (R104). Exceptions propagate: a fixture that cannot be
-published is a test failure, never a skip.
+fixture data (R104). ``telemetry=True`` first writes builder staging files
+for the recorded jobs, so the real export publishes the telemetry files.
+Exceptions propagate: a fixture that cannot be published is a test
+failure, never a skip.
 """
 
 from __future__ import annotations
 
-from collections.abc import Mapping
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, replace
 from pathlib import Path
 from types import MappingProxyType
@@ -37,6 +39,13 @@ from hpc_model_utils.platform.modelops import Reporter
 from tests.support.decks import golden_archive_workspace
 from tests.support.hooks import Hook, parse_hooks
 from tests.support.object_store import RecordingObjectStore
+from tests.support.telemetry_staging import (
+    ORIGIN_MS,
+    header,
+    sample,
+    walk,
+    write_staging,
+)
 
 ModelName = Literal["newave", "decomp"]
 
@@ -75,11 +84,25 @@ class _ListChannel:
         self.lines.append(line)
 
 
+def _write_telemetry_staging(ws: Workspace, jobs: Sequence[JobRecord]) -> None:
+    for job in jobs:
+        head = header(job.phase.value, job.job_id)
+        records = [
+            sample(head, seq, cpu_busy_cores=1.5 + seq) for seq in range(3)
+        ]
+        if job.phase is Phase.MODEL:
+            records.append(
+                walk(head, ts=ORIGIN_MS + 60_000, allocated_bytes=4096)
+            )
+        write_staging(ws.telemetry_dir, head, records)
+
+
 def publish_golden_run(
     tmp_path: Path,
     model: ModelName,
     *,
     status: RunStatus = RunStatus.SUCCESS,
+    telemetry: bool = False,
 ) -> PublishedRun:
     ws = golden_archive_workspace(tmp_path, model)
     ws.ensure_layout()
@@ -110,6 +133,8 @@ def publish_golden_run(
     )
     state_store = StateStore(ws)
     state_store.save(state)
+    if telemetry:
+        _write_telemetry_staging(ws, jobs)
 
     realized = realize(plugin.outputs(ws), ws, workers=2)
     write_finalize(

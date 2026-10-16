@@ -1,0 +1,6068 @@
+{
+ "truncated_tail": {
+  "samples": {
+   "schema": [
+    [
+     "ts",
+     "timestamp[ms, tz=UTC]",
+     false
+    ],
+    [
+     "phase",
+     "string",
+     false
+    ],
+    [
+     "job_id",
+     "string",
+     false
+    ],
+    [
+     "restart",
+     "int16",
+     false
+    ],
+    [
+     "node",
+     "string",
+     false
+    ],
+    [
+     "node_index",
+     "int16",
+     false
+    ],
+    [
+     "seq",
+     "int32",
+     false
+    ],
+    [
+     "dt_s",
+     "float",
+     true
+    ],
+    [
+     "sample_cost_ms",
+     "float",
+     true
+    ],
+    [
+     "sampler_maxrss_bytes",
+     "int64",
+     true
+    ],
+    [
+     "cpu_busy_cores",
+     "float",
+     true
+    ],
+    [
+     "cpu_util",
+     "float",
+     true
+    ],
+    [
+     "cpu_user_cores",
+     "float",
+     true
+    ],
+    [
+     "cpu_system_cores",
+     "float",
+     true
+    ],
+    [
+     "cpu_iowait_cores",
+     "float",
+     true
+    ],
+    [
+     "cpu_steal_cores",
+     "float",
+     true
+    ],
+    [
+     "cpu_core_util_min",
+     "float",
+     true
+    ],
+    [
+     "cpu_core_util_p50",
+     "float",
+     true
+    ],
+    [
+     "cpu_core_util_max",
+     "float",
+     true
+    ],
+    [
+     "cpu_active_cores",
+     "int16",
+     true
+    ],
+    [
+     "load1",
+     "float",
+     true
+    ],
+    [
+     "procs_running",
+     "int32",
+     true
+    ],
+    [
+     "procs_blocked",
+     "int32",
+     true
+    ],
+    [
+     "mem_used_bytes",
+     "int64",
+     true
+    ],
+    [
+     "mem_available_bytes",
+     "int64",
+     true
+    ],
+    [
+     "mem_anon_bytes",
+     "int64",
+     true
+    ],
+    [
+     "mem_cached_bytes",
+     "int64",
+     true
+    ],
+    [
+     "mem_shmem_bytes",
+     "int64",
+     true
+    ],
+    [
+     "mem_dirty_bytes",
+     "int64",
+     true
+    ],
+    [
+     "mem_writeback_bytes",
+     "int64",
+     true
+    ],
+    [
+     "mem_slab_bytes",
+     "int64",
+     true
+    ],
+    [
+     "swap_used_bytes",
+     "int64",
+     true
+    ],
+    [
+     "major_faults_per_s",
+     "float",
+     true
+    ],
+    [
+     "oom_kills",
+     "int32",
+     true
+    ],
+    [
+     "job_cpu_cores",
+     "float",
+     true
+    ],
+    [
+     "job_mem_bytes",
+     "int64",
+     true
+    ],
+    [
+     "job_mem_anon_bytes",
+     "int64",
+     true
+    ],
+    [
+     "job_mem_file_bytes",
+     "int64",
+     true
+    ],
+    [
+     "job_mem_shmem_bytes",
+     "int64",
+     true
+    ],
+    [
+     "job_mem_peak_bytes",
+     "int64",
+     true
+    ],
+    [
+     "job_pids",
+     "int32",
+     true
+    ],
+    [
+     "job_oom_kills",
+     "int32",
+     true
+    ],
+    [
+     "psi_cpu_some",
+     "float",
+     true
+    ],
+    [
+     "psi_mem_some",
+     "float",
+     true
+    ],
+    [
+     "psi_mem_full",
+     "float",
+     true
+    ],
+    [
+     "psi_io_some",
+     "float",
+     true
+    ],
+    [
+     "psi_io_full",
+     "float",
+     true
+    ],
+    [
+     "disk_read_bytes_per_s",
+     "double",
+     true
+    ],
+    [
+     "disk_write_bytes_per_s",
+     "double",
+     true
+    ],
+    [
+     "disk_busy_max",
+     "float",
+     true
+    ],
+    [
+     "nfs_read_bytes_per_s",
+     "double",
+     true
+    ],
+    [
+     "nfs_write_bytes_per_s",
+     "double",
+     true
+    ],
+    [
+     "nfs_server_read_bytes_per_s",
+     "double",
+     true
+    ],
+    [
+     "nfs_server_write_bytes_per_s",
+     "double",
+     true
+    ],
+    [
+     "nfs_read_ops_per_s",
+     "float",
+     true
+    ],
+    [
+     "nfs_write_ops_per_s",
+     "float",
+     true
+    ],
+    [
+     "nfs_ops_per_s",
+     "float",
+     true
+    ],
+    [
+     "nfs_read_rtt_ms",
+     "float",
+     true
+    ],
+    [
+     "nfs_write_rtt_ms",
+     "float",
+     true
+    ],
+    [
+     "net_rx_bytes_per_s",
+     "double",
+     true
+    ],
+    [
+     "net_tx_bytes_per_s",
+     "double",
+     true
+    ],
+    [
+     "net_errors_per_s",
+     "float",
+     true
+    ],
+    [
+     "efa_rx_bytes_per_s",
+     "double",
+     true
+    ],
+    [
+     "efa_tx_bytes_per_s",
+     "double",
+     true
+    ]
+   ],
+   "kv": {
+    "hpcmu.telemetry.schema_version": "1",
+    "hpcmu.telemetry.kind": "hpcmu.telemetry.samples",
+    "hpcmu.tool_version": "9.9.9",
+    "hpcmu.run_id": "run-1",
+    "hpcmu.model": "fake",
+    "hpcmu.headers": [
+     {
+      "kind": "hpcmu.telemetry.header",
+      "schema_version": 1,
+      "tool_version": "9.9.9",
+      "phase": "model",
+      "job_id": "1000",
+      "restart": 0,
+      "node": "fake-node0",
+      "node_index": 0,
+      "nodes": 1,
+      "partition": null,
+      "cpus_on_node": null,
+      "instance_type": null,
+      "cpu_model": null,
+      "ncpus": null,
+      "mem_total_bytes": null,
+      "kernel": null,
+      "job_cgroup": null,
+      "own_step_cgroup": null,
+      "workspace_mount": null,
+      "interval_s": 5,
+      "workspace_interval_s": 60,
+      "started_at": "2000-01-01T00:00:00.000Z"
+     }
+    ]
+   },
+   "rows": [
+    {
+     "ts": 946684805000,
+     "phase": "model",
+     "job_id": "1000",
+     "restart": 0,
+     "node": "fake-node0",
+     "node_index": 0,
+     "seq": 0,
+     "dt_s": 5.0,
+     "sample_cost_ms": 0.125,
+     "cpu_busy_cores": 2.0,
+     "cpu_util": 0.5,
+     "mem_available_bytes": 8589934592,
+     "job_mem_peak_bytes": 1073741824,
+     "disk_write_bytes_per_s": 100.75,
+     "nfs_read_bytes_per_s": 1000.25
+    },
+    {
+     "ts": 946684810000,
+     "phase": "model",
+     "job_id": "1000",
+     "restart": 0,
+     "node": "fake-node0",
+     "node_index": 0,
+     "seq": 1,
+     "dt_s": 5.0,
+     "sample_cost_ms": 0.140625,
+     "cpu_busy_cores": 2.25,
+     "cpu_util": 0.515625,
+     "mem_available_bytes": 8588886016,
+     "job_mem_peak_bytes": 1074790400,
+     "disk_write_bytes_per_s": 200.75,
+     "nfs_read_bytes_per_s": 2000.25
+    },
+    {
+     "ts": 946684815000,
+     "phase": "model",
+     "job_id": "1000",
+     "restart": 0,
+     "node": "fake-node0",
+     "node_index": 0,
+     "seq": 2,
+     "dt_s": 5.0,
+     "sample_cost_ms": 0.15625,
+     "cpu_busy_cores": 2.5,
+     "cpu_util": 0.53125,
+     "mem_available_bytes": 8587837440,
+     "job_mem_peak_bytes": 1075838976,
+     "disk_write_bytes_per_s": 300.75,
+     "nfs_read_bytes_per_s": 3000.25
+    }
+   ]
+  },
+  "workspace": {
+   "schema": [
+    [
+     "ts",
+     "timestamp[ms, tz=UTC]",
+     false
+    ],
+    [
+     "phase",
+     "string",
+     false
+    ],
+    [
+     "job_id",
+     "string",
+     false
+    ],
+    [
+     "restart",
+     "int16",
+     false
+    ],
+    [
+     "node",
+     "string",
+     false
+    ],
+    [
+     "apparent_bytes",
+     "int64",
+     true
+    ],
+    [
+     "allocated_bytes",
+     "int64",
+     true
+    ],
+    [
+     "files",
+     "int64",
+     true
+    ],
+    [
+     "dirs",
+     "int64",
+     true
+    ],
+    [
+     "walk_s",
+     "float",
+     true
+    ],
+    [
+     "fs_used_bytes",
+     "int64",
+     true
+    ],
+    [
+     "fs_avail_bytes",
+     "int64",
+     true
+    ]
+   ],
+   "kv": {
+    "hpcmu.telemetry.schema_version": "1",
+    "hpcmu.telemetry.kind": "hpcmu.telemetry.workspace",
+    "hpcmu.tool_version": "9.9.9",
+    "hpcmu.run_id": "run-1",
+    "hpcmu.model": "fake",
+    "hpcmu.headers": [
+     {
+      "kind": "hpcmu.telemetry.header",
+      "schema_version": 1,
+      "tool_version": "9.9.9",
+      "phase": "model",
+      "job_id": "1000",
+      "restart": 0,
+      "node": "fake-node0",
+      "node_index": 0,
+      "nodes": 1,
+      "partition": null,
+      "cpus_on_node": null,
+      "instance_type": null,
+      "cpu_model": null,
+      "ncpus": null,
+      "mem_total_bytes": null,
+      "kernel": null,
+      "job_cgroup": null,
+      "own_step_cgroup": null,
+      "workspace_mount": null,
+      "interval_s": 5,
+      "workspace_interval_s": 60,
+      "started_at": "2000-01-01T00:00:00.000Z"
+     }
+    ]
+   },
+   "rows": [
+    {
+     "ts": 946684805000,
+     "phase": "model",
+     "job_id": "1000",
+     "restart": 0,
+     "node": "fake-node0",
+     "apparent_bytes": 3221225472,
+     "allocated_bytes": 2147483648,
+     "files": 1000,
+     "dirs": 100,
+     "walk_s": 0.25,
+     "fs_used_bytes": 5497558138880,
+     "fs_avail_bytes": 1099511627776
+    }
+   ]
+  },
+  "summary": {
+   "kind": "hpcmu.telemetry.summary",
+   "schema_version": 1,
+   "run": {
+    "run_id": "run-1",
+    "model": "fake",
+    "tool_version": "9.9.9",
+    "interval_s": 5,
+    "workspace_interval_s": 60
+   },
+   "jobs": [
+    {
+     "phase": "model",
+     "job_id": "1000",
+     "nodes": [
+      {
+       "header": {
+        "kind": "hpcmu.telemetry.header",
+        "schema_version": 1,
+        "tool_version": "9.9.9",
+        "phase": "model",
+        "job_id": "1000",
+        "restart": 0,
+        "node": "fake-node0",
+        "node_index": 0,
+        "nodes": 1,
+        "partition": null,
+        "cpus_on_node": null,
+        "instance_type": null,
+        "cpu_model": null,
+        "ncpus": null,
+        "mem_total_bytes": null,
+        "kernel": null,
+        "job_cgroup": null,
+        "own_step_cgroup": null,
+        "workspace_mount": null,
+        "interval_s": 5,
+        "workspace_interval_s": 60,
+        "started_at": "2000-01-01T00:00:00.000Z"
+       },
+       "first_ts": 946684805000,
+       "last_ts": 946684815000,
+       "samples": 3,
+       "gaps": 0,
+       "max_gap_s": 5.0,
+       "stats": {
+        "sample_cost_ms_mean": 0.140625,
+        "sample_cost_ms_p95": 0.1546875,
+        "sample_cost_ms_p99": 0.1559375,
+        "sample_cost_ms_max": 0.15625,
+        "cpu_busy_cores_min": 2.0,
+        "cpu_busy_cores_mean": 2.25,
+        "cpu_busy_cores_p95": 2.475,
+        "cpu_busy_cores_max": 2.5,
+        "cpu_util_min": 0.5,
+        "cpu_util_mean": 0.515625,
+        "cpu_util_p95": 0.5296875,
+        "cpu_util_max": 0.53125,
+        "mem_available_bytes_min": 8587837440,
+        "mem_available_bytes_mean": 8588886016.0,
+        "mem_available_bytes_p95": 8589829734.4,
+        "mem_available_bytes_max": 8589934592,
+        "job_mem_peak_bytes_max": 1075838976,
+        "disk_write_bytes_per_s_mean": 200.75,
+        "disk_write_bytes_per_s_p95": 290.75,
+        "disk_write_bytes_per_s_max": 300.75,
+        "disk_write_bytes_total": 3011.25,
+        "nfs_read_bytes_per_s_mean": 2000.25,
+        "nfs_read_bytes_per_s_p95": 2900.25,
+        "nfs_read_bytes_per_s_max": 3000.25,
+        "nfs_read_bytes_total": 30003.75
+       }
+      }
+     ]
+    }
+   ],
+   "workspace": {
+    "walks": 1,
+    "stats": {
+     "apparent_bytes_max": 3221225472,
+     "allocated_bytes_max": 2147483648,
+     "files_max": 1000,
+     "dirs_max": 100,
+     "walk_s_max": 0.25,
+     "fs_used_bytes_max": 5497558138880,
+     "fs_avail_bytes_min": 1099511627776
+    }
+   },
+   "headline": {
+    "job_ids": {
+     "model": "1000"
+    },
+    "values": {
+     "model.job_mem_peak_bytes_max": 1075838976,
+     "model.mem_available_bytes_min": 8587837440,
+     "model.cpu_busy_cores_mean": 2.25,
+     "model.cpu_busy_cores_p95": 2.475,
+     "model.cpu_util_mean": 0.515625,
+     "model.nfs_read_bytes_total": 30003.75,
+     "model.disk_write_bytes_total": 3011.25,
+     "workspace.allocated_bytes_max": 2147483648
+    }
+   },
+   "warnings": [
+    {
+     "code": "truncated_tail",
+     "phase": "model",
+     "job_id": "1000",
+     "restart": 0,
+     "node_index": 0,
+     "count": 1,
+     "message": "last line has no newline"
+    }
+   ]
+  }
+ },
+ "malformed_line": {
+  "samples": {
+   "schema": [
+    [
+     "ts",
+     "timestamp[ms, tz=UTC]",
+     false
+    ],
+    [
+     "phase",
+     "string",
+     false
+    ],
+    [
+     "job_id",
+     "string",
+     false
+    ],
+    [
+     "restart",
+     "int16",
+     false
+    ],
+    [
+     "node",
+     "string",
+     false
+    ],
+    [
+     "node_index",
+     "int16",
+     false
+    ],
+    [
+     "seq",
+     "int32",
+     false
+    ],
+    [
+     "dt_s",
+     "float",
+     true
+    ],
+    [
+     "sample_cost_ms",
+     "float",
+     true
+    ],
+    [
+     "sampler_maxrss_bytes",
+     "int64",
+     true
+    ],
+    [
+     "cpu_busy_cores",
+     "float",
+     true
+    ],
+    [
+     "cpu_util",
+     "float",
+     true
+    ],
+    [
+     "cpu_user_cores",
+     "float",
+     true
+    ],
+    [
+     "cpu_system_cores",
+     "float",
+     true
+    ],
+    [
+     "cpu_iowait_cores",
+     "float",
+     true
+    ],
+    [
+     "cpu_steal_cores",
+     "float",
+     true
+    ],
+    [
+     "cpu_core_util_min",
+     "float",
+     true
+    ],
+    [
+     "cpu_core_util_p50",
+     "float",
+     true
+    ],
+    [
+     "cpu_core_util_max",
+     "float",
+     true
+    ],
+    [
+     "cpu_active_cores",
+     "int16",
+     true
+    ],
+    [
+     "load1",
+     "float",
+     true
+    ],
+    [
+     "procs_running",
+     "int32",
+     true
+    ],
+    [
+     "procs_blocked",
+     "int32",
+     true
+    ],
+    [
+     "mem_used_bytes",
+     "int64",
+     true
+    ],
+    [
+     "mem_available_bytes",
+     "int64",
+     true
+    ],
+    [
+     "mem_anon_bytes",
+     "int64",
+     true
+    ],
+    [
+     "mem_cached_bytes",
+     "int64",
+     true
+    ],
+    [
+     "mem_shmem_bytes",
+     "int64",
+     true
+    ],
+    [
+     "mem_dirty_bytes",
+     "int64",
+     true
+    ],
+    [
+     "mem_writeback_bytes",
+     "int64",
+     true
+    ],
+    [
+     "mem_slab_bytes",
+     "int64",
+     true
+    ],
+    [
+     "swap_used_bytes",
+     "int64",
+     true
+    ],
+    [
+     "major_faults_per_s",
+     "float",
+     true
+    ],
+    [
+     "oom_kills",
+     "int32",
+     true
+    ],
+    [
+     "job_cpu_cores",
+     "float",
+     true
+    ],
+    [
+     "job_mem_bytes",
+     "int64",
+     true
+    ],
+    [
+     "job_mem_anon_bytes",
+     "int64",
+     true
+    ],
+    [
+     "job_mem_file_bytes",
+     "int64",
+     true
+    ],
+    [
+     "job_mem_shmem_bytes",
+     "int64",
+     true
+    ],
+    [
+     "job_mem_peak_bytes",
+     "int64",
+     true
+    ],
+    [
+     "job_pids",
+     "int32",
+     true
+    ],
+    [
+     "job_oom_kills",
+     "int32",
+     true
+    ],
+    [
+     "psi_cpu_some",
+     "float",
+     true
+    ],
+    [
+     "psi_mem_some",
+     "float",
+     true
+    ],
+    [
+     "psi_mem_full",
+     "float",
+     true
+    ],
+    [
+     "psi_io_some",
+     "float",
+     true
+    ],
+    [
+     "psi_io_full",
+     "float",
+     true
+    ],
+    [
+     "disk_read_bytes_per_s",
+     "double",
+     true
+    ],
+    [
+     "disk_write_bytes_per_s",
+     "double",
+     true
+    ],
+    [
+     "disk_busy_max",
+     "float",
+     true
+    ],
+    [
+     "nfs_read_bytes_per_s",
+     "double",
+     true
+    ],
+    [
+     "nfs_write_bytes_per_s",
+     "double",
+     true
+    ],
+    [
+     "nfs_server_read_bytes_per_s",
+     "double",
+     true
+    ],
+    [
+     "nfs_server_write_bytes_per_s",
+     "double",
+     true
+    ],
+    [
+     "nfs_read_ops_per_s",
+     "float",
+     true
+    ],
+    [
+     "nfs_write_ops_per_s",
+     "float",
+     true
+    ],
+    [
+     "nfs_ops_per_s",
+     "float",
+     true
+    ],
+    [
+     "nfs_read_rtt_ms",
+     "float",
+     true
+    ],
+    [
+     "nfs_write_rtt_ms",
+     "float",
+     true
+    ],
+    [
+     "net_rx_bytes_per_s",
+     "double",
+     true
+    ],
+    [
+     "net_tx_bytes_per_s",
+     "double",
+     true
+    ],
+    [
+     "net_errors_per_s",
+     "float",
+     true
+    ],
+    [
+     "efa_rx_bytes_per_s",
+     "double",
+     true
+    ],
+    [
+     "efa_tx_bytes_per_s",
+     "double",
+     true
+    ]
+   ],
+   "kv": {
+    "hpcmu.telemetry.schema_version": "1",
+    "hpcmu.telemetry.kind": "hpcmu.telemetry.samples",
+    "hpcmu.tool_version": "9.9.9",
+    "hpcmu.run_id": "run-1",
+    "hpcmu.model": "fake",
+    "hpcmu.headers": [
+     {
+      "kind": "hpcmu.telemetry.header",
+      "schema_version": 1,
+      "tool_version": "9.9.9",
+      "phase": "model",
+      "job_id": "1000",
+      "restart": 0,
+      "node": "fake-node0",
+      "node_index": 0,
+      "nodes": 1,
+      "partition": null,
+      "cpus_on_node": null,
+      "instance_type": null,
+      "cpu_model": null,
+      "ncpus": null,
+      "mem_total_bytes": null,
+      "kernel": null,
+      "job_cgroup": null,
+      "own_step_cgroup": null,
+      "workspace_mount": null,
+      "interval_s": 5,
+      "workspace_interval_s": 60,
+      "started_at": "2000-01-01T00:00:00.000Z"
+     }
+    ]
+   },
+   "rows": [
+    {
+     "ts": 946684805000,
+     "phase": "model",
+     "job_id": "1000",
+     "restart": 0,
+     "node": "fake-node0",
+     "node_index": 0,
+     "seq": 0,
+     "dt_s": 5.0,
+     "sample_cost_ms": 0.125,
+     "cpu_busy_cores": 2.0,
+     "cpu_util": 0.5,
+     "mem_available_bytes": 8589934592,
+     "job_mem_peak_bytes": 1073741824,
+     "disk_write_bytes_per_s": 100.75,
+     "nfs_read_bytes_per_s": 1000.25
+    },
+    {
+     "ts": 946684810000,
+     "phase": "model",
+     "job_id": "1000",
+     "restart": 0,
+     "node": "fake-node0",
+     "node_index": 0,
+     "seq": 1,
+     "dt_s": 5.0,
+     "sample_cost_ms": 0.140625,
+     "cpu_busy_cores": 2.25,
+     "cpu_util": 0.515625,
+     "mem_available_bytes": 8588886016,
+     "job_mem_peak_bytes": 1074790400,
+     "disk_write_bytes_per_s": 200.75,
+     "nfs_read_bytes_per_s": 2000.25
+    },
+    {
+     "ts": 946684815000,
+     "phase": "model",
+     "job_id": "1000",
+     "restart": 0,
+     "node": "fake-node0",
+     "node_index": 0,
+     "seq": 2,
+     "dt_s": 5.0,
+     "sample_cost_ms": 0.15625,
+     "cpu_busy_cores": 2.5,
+     "cpu_util": 0.53125,
+     "mem_available_bytes": 8587837440,
+     "job_mem_peak_bytes": 1075838976,
+     "disk_write_bytes_per_s": 300.75,
+     "nfs_read_bytes_per_s": 3000.25
+    },
+    {
+     "ts": 946684820000,
+     "phase": "model",
+     "job_id": "1000",
+     "restart": 0,
+     "node": "fake-node0",
+     "node_index": 0,
+     "seq": 3,
+     "dt_s": 5.0,
+     "sample_cost_ms": 0.171875,
+     "cpu_busy_cores": 2.75,
+     "cpu_util": 0.546875,
+     "mem_available_bytes": 8586788864,
+     "job_mem_peak_bytes": 1076887552,
+     "disk_write_bytes_per_s": 400.75,
+     "nfs_read_bytes_per_s": 4000.25
+    }
+   ]
+  },
+  "workspace": {
+   "schema": [
+    [
+     "ts",
+     "timestamp[ms, tz=UTC]",
+     false
+    ],
+    [
+     "phase",
+     "string",
+     false
+    ],
+    [
+     "job_id",
+     "string",
+     false
+    ],
+    [
+     "restart",
+     "int16",
+     false
+    ],
+    [
+     "node",
+     "string",
+     false
+    ],
+    [
+     "apparent_bytes",
+     "int64",
+     true
+    ],
+    [
+     "allocated_bytes",
+     "int64",
+     true
+    ],
+    [
+     "files",
+     "int64",
+     true
+    ],
+    [
+     "dirs",
+     "int64",
+     true
+    ],
+    [
+     "walk_s",
+     "float",
+     true
+    ],
+    [
+     "fs_used_bytes",
+     "int64",
+     true
+    ],
+    [
+     "fs_avail_bytes",
+     "int64",
+     true
+    ]
+   ],
+   "kv": {
+    "hpcmu.telemetry.schema_version": "1",
+    "hpcmu.telemetry.kind": "hpcmu.telemetry.workspace",
+    "hpcmu.tool_version": "9.9.9",
+    "hpcmu.run_id": "run-1",
+    "hpcmu.model": "fake",
+    "hpcmu.headers": [
+     {
+      "kind": "hpcmu.telemetry.header",
+      "schema_version": 1,
+      "tool_version": "9.9.9",
+      "phase": "model",
+      "job_id": "1000",
+      "restart": 0,
+      "node": "fake-node0",
+      "node_index": 0,
+      "nodes": 1,
+      "partition": null,
+      "cpus_on_node": null,
+      "instance_type": null,
+      "cpu_model": null,
+      "ncpus": null,
+      "mem_total_bytes": null,
+      "kernel": null,
+      "job_cgroup": null,
+      "own_step_cgroup": null,
+      "workspace_mount": null,
+      "interval_s": 5,
+      "workspace_interval_s": 60,
+      "started_at": "2000-01-01T00:00:00.000Z"
+     }
+    ]
+   },
+   "rows": []
+  },
+  "summary": {
+   "kind": "hpcmu.telemetry.summary",
+   "schema_version": 1,
+   "run": {
+    "run_id": "run-1",
+    "model": "fake",
+    "tool_version": "9.9.9",
+    "interval_s": 5,
+    "workspace_interval_s": 60
+   },
+   "jobs": [
+    {
+     "phase": "model",
+     "job_id": "1000",
+     "nodes": [
+      {
+       "header": {
+        "kind": "hpcmu.telemetry.header",
+        "schema_version": 1,
+        "tool_version": "9.9.9",
+        "phase": "model",
+        "job_id": "1000",
+        "restart": 0,
+        "node": "fake-node0",
+        "node_index": 0,
+        "nodes": 1,
+        "partition": null,
+        "cpus_on_node": null,
+        "instance_type": null,
+        "cpu_model": null,
+        "ncpus": null,
+        "mem_total_bytes": null,
+        "kernel": null,
+        "job_cgroup": null,
+        "own_step_cgroup": null,
+        "workspace_mount": null,
+        "interval_s": 5,
+        "workspace_interval_s": 60,
+        "started_at": "2000-01-01T00:00:00.000Z"
+       },
+       "first_ts": 946684805000,
+       "last_ts": 946684820000,
+       "samples": 4,
+       "gaps": 0,
+       "max_gap_s": 5.0,
+       "stats": {
+        "sample_cost_ms_mean": 0.1484375,
+        "sample_cost_ms_p95": 0.16953125,
+        "sample_cost_ms_p99": 0.17140624999999998,
+        "sample_cost_ms_max": 0.171875,
+        "cpu_busy_cores_min": 2.0,
+        "cpu_busy_cores_mean": 2.375,
+        "cpu_busy_cores_p95": 2.7125,
+        "cpu_busy_cores_max": 2.75,
+        "cpu_util_min": 0.5,
+        "cpu_util_mean": 0.5234375,
+        "cpu_util_p95": 0.54453125,
+        "cpu_util_max": 0.546875,
+        "mem_available_bytes_min": 8586788864,
+        "mem_available_bytes_mean": 8588361728.0,
+        "mem_available_bytes_p95": 8589777305.6,
+        "mem_available_bytes_max": 8589934592,
+        "job_mem_peak_bytes_max": 1076887552,
+        "disk_write_bytes_per_s_mean": 250.75,
+        "disk_write_bytes_per_s_p95": 385.75,
+        "disk_write_bytes_per_s_max": 400.75,
+        "disk_write_bytes_total": 5015.0,
+        "nfs_read_bytes_per_s_mean": 2500.25,
+        "nfs_read_bytes_per_s_p95": 3850.2499999999995,
+        "nfs_read_bytes_per_s_max": 4000.25,
+        "nfs_read_bytes_total": 50005.0
+       }
+      }
+     ]
+    }
+   ],
+   "workspace": {
+    "walks": 0,
+    "stats": {}
+   },
+   "headline": {
+    "job_ids": {
+     "model": "1000"
+    },
+    "values": {
+     "model.job_mem_peak_bytes_max": 1076887552,
+     "model.mem_available_bytes_min": 8586788864,
+     "model.cpu_busy_cores_mean": 2.375,
+     "model.cpu_busy_cores_p95": 2.7125,
+     "model.cpu_util_mean": 0.5234375,
+     "model.nfs_read_bytes_total": 50005.0,
+     "model.disk_write_bytes_total": 5015.0
+    }
+   },
+   "warnings": [
+    {
+     "code": "bad_line",
+     "phase": "model",
+     "job_id": "1000",
+     "restart": 0,
+     "node_index": 0,
+     "count": 1,
+     "message": "not ASCII JSON"
+    }
+   ]
+  }
+ },
+ "partial_write": {
+  "samples": {
+   "schema": [
+    [
+     "ts",
+     "timestamp[ms, tz=UTC]",
+     false
+    ],
+    [
+     "phase",
+     "string",
+     false
+    ],
+    [
+     "job_id",
+     "string",
+     false
+    ],
+    [
+     "restart",
+     "int16",
+     false
+    ],
+    [
+     "node",
+     "string",
+     false
+    ],
+    [
+     "node_index",
+     "int16",
+     false
+    ],
+    [
+     "seq",
+     "int32",
+     false
+    ],
+    [
+     "dt_s",
+     "float",
+     true
+    ],
+    [
+     "sample_cost_ms",
+     "float",
+     true
+    ],
+    [
+     "sampler_maxrss_bytes",
+     "int64",
+     true
+    ],
+    [
+     "cpu_busy_cores",
+     "float",
+     true
+    ],
+    [
+     "cpu_util",
+     "float",
+     true
+    ],
+    [
+     "cpu_user_cores",
+     "float",
+     true
+    ],
+    [
+     "cpu_system_cores",
+     "float",
+     true
+    ],
+    [
+     "cpu_iowait_cores",
+     "float",
+     true
+    ],
+    [
+     "cpu_steal_cores",
+     "float",
+     true
+    ],
+    [
+     "cpu_core_util_min",
+     "float",
+     true
+    ],
+    [
+     "cpu_core_util_p50",
+     "float",
+     true
+    ],
+    [
+     "cpu_core_util_max",
+     "float",
+     true
+    ],
+    [
+     "cpu_active_cores",
+     "int16",
+     true
+    ],
+    [
+     "load1",
+     "float",
+     true
+    ],
+    [
+     "procs_running",
+     "int32",
+     true
+    ],
+    [
+     "procs_blocked",
+     "int32",
+     true
+    ],
+    [
+     "mem_used_bytes",
+     "int64",
+     true
+    ],
+    [
+     "mem_available_bytes",
+     "int64",
+     true
+    ],
+    [
+     "mem_anon_bytes",
+     "int64",
+     true
+    ],
+    [
+     "mem_cached_bytes",
+     "int64",
+     true
+    ],
+    [
+     "mem_shmem_bytes",
+     "int64",
+     true
+    ],
+    [
+     "mem_dirty_bytes",
+     "int64",
+     true
+    ],
+    [
+     "mem_writeback_bytes",
+     "int64",
+     true
+    ],
+    [
+     "mem_slab_bytes",
+     "int64",
+     true
+    ],
+    [
+     "swap_used_bytes",
+     "int64",
+     true
+    ],
+    [
+     "major_faults_per_s",
+     "float",
+     true
+    ],
+    [
+     "oom_kills",
+     "int32",
+     true
+    ],
+    [
+     "job_cpu_cores",
+     "float",
+     true
+    ],
+    [
+     "job_mem_bytes",
+     "int64",
+     true
+    ],
+    [
+     "job_mem_anon_bytes",
+     "int64",
+     true
+    ],
+    [
+     "job_mem_file_bytes",
+     "int64",
+     true
+    ],
+    [
+     "job_mem_shmem_bytes",
+     "int64",
+     true
+    ],
+    [
+     "job_mem_peak_bytes",
+     "int64",
+     true
+    ],
+    [
+     "job_pids",
+     "int32",
+     true
+    ],
+    [
+     "job_oom_kills",
+     "int32",
+     true
+    ],
+    [
+     "psi_cpu_some",
+     "float",
+     true
+    ],
+    [
+     "psi_mem_some",
+     "float",
+     true
+    ],
+    [
+     "psi_mem_full",
+     "float",
+     true
+    ],
+    [
+     "psi_io_some",
+     "float",
+     true
+    ],
+    [
+     "psi_io_full",
+     "float",
+     true
+    ],
+    [
+     "disk_read_bytes_per_s",
+     "double",
+     true
+    ],
+    [
+     "disk_write_bytes_per_s",
+     "double",
+     true
+    ],
+    [
+     "disk_busy_max",
+     "float",
+     true
+    ],
+    [
+     "nfs_read_bytes_per_s",
+     "double",
+     true
+    ],
+    [
+     "nfs_write_bytes_per_s",
+     "double",
+     true
+    ],
+    [
+     "nfs_server_read_bytes_per_s",
+     "double",
+     true
+    ],
+    [
+     "nfs_server_write_bytes_per_s",
+     "double",
+     true
+    ],
+    [
+     "nfs_read_ops_per_s",
+     "float",
+     true
+    ],
+    [
+     "nfs_write_ops_per_s",
+     "float",
+     true
+    ],
+    [
+     "nfs_ops_per_s",
+     "float",
+     true
+    ],
+    [
+     "nfs_read_rtt_ms",
+     "float",
+     true
+    ],
+    [
+     "nfs_write_rtt_ms",
+     "float",
+     true
+    ],
+    [
+     "net_rx_bytes_per_s",
+     "double",
+     true
+    ],
+    [
+     "net_tx_bytes_per_s",
+     "double",
+     true
+    ],
+    [
+     "net_errors_per_s",
+     "float",
+     true
+    ],
+    [
+     "efa_rx_bytes_per_s",
+     "double",
+     true
+    ],
+    [
+     "efa_tx_bytes_per_s",
+     "double",
+     true
+    ]
+   ],
+   "kv": {
+    "hpcmu.telemetry.schema_version": "1",
+    "hpcmu.telemetry.kind": "hpcmu.telemetry.samples",
+    "hpcmu.tool_version": "9.9.9",
+    "hpcmu.run_id": "run-1",
+    "hpcmu.model": "fake",
+    "hpcmu.headers": [
+     {
+      "kind": "hpcmu.telemetry.header",
+      "schema_version": 1,
+      "tool_version": "9.9.9",
+      "phase": "model",
+      "job_id": "1000",
+      "restart": 0,
+      "node": "fake-node0",
+      "node_index": 0,
+      "nodes": 1,
+      "partition": null,
+      "cpus_on_node": null,
+      "instance_type": null,
+      "cpu_model": null,
+      "ncpus": null,
+      "mem_total_bytes": null,
+      "kernel": null,
+      "job_cgroup": null,
+      "own_step_cgroup": null,
+      "workspace_mount": null,
+      "interval_s": 5,
+      "workspace_interval_s": 60,
+      "started_at": "2000-01-01T00:00:00.000Z"
+     }
+    ]
+   },
+   "rows": [
+    {
+     "ts": 946684805000,
+     "phase": "model",
+     "job_id": "1000",
+     "restart": 0,
+     "node": "fake-node0",
+     "node_index": 0,
+     "seq": 0,
+     "dt_s": 5.0,
+     "sample_cost_ms": 0.125,
+     "cpu_busy_cores": 2.0,
+     "cpu_util": 0.5,
+     "mem_available_bytes": 8589934592,
+     "job_mem_peak_bytes": 1073741824,
+     "disk_write_bytes_per_s": 100.75,
+     "nfs_read_bytes_per_s": 1000.25
+    },
+    {
+     "ts": 946684820000,
+     "phase": "model",
+     "job_id": "1000",
+     "restart": 0,
+     "node": "fake-node0",
+     "node_index": 0,
+     "seq": 3,
+     "dt_s": 5.0,
+     "sample_cost_ms": 0.171875,
+     "cpu_busy_cores": 2.75,
+     "cpu_util": 0.546875,
+     "mem_available_bytes": 8586788864,
+     "job_mem_peak_bytes": 1076887552,
+     "disk_write_bytes_per_s": 400.75,
+     "nfs_read_bytes_per_s": 4000.25
+    }
+   ]
+  },
+  "workspace": {
+   "schema": [
+    [
+     "ts",
+     "timestamp[ms, tz=UTC]",
+     false
+    ],
+    [
+     "phase",
+     "string",
+     false
+    ],
+    [
+     "job_id",
+     "string",
+     false
+    ],
+    [
+     "restart",
+     "int16",
+     false
+    ],
+    [
+     "node",
+     "string",
+     false
+    ],
+    [
+     "apparent_bytes",
+     "int64",
+     true
+    ],
+    [
+     "allocated_bytes",
+     "int64",
+     true
+    ],
+    [
+     "files",
+     "int64",
+     true
+    ],
+    [
+     "dirs",
+     "int64",
+     true
+    ],
+    [
+     "walk_s",
+     "float",
+     true
+    ],
+    [
+     "fs_used_bytes",
+     "int64",
+     true
+    ],
+    [
+     "fs_avail_bytes",
+     "int64",
+     true
+    ]
+   ],
+   "kv": {
+    "hpcmu.telemetry.schema_version": "1",
+    "hpcmu.telemetry.kind": "hpcmu.telemetry.workspace",
+    "hpcmu.tool_version": "9.9.9",
+    "hpcmu.run_id": "run-1",
+    "hpcmu.model": "fake",
+    "hpcmu.headers": [
+     {
+      "kind": "hpcmu.telemetry.header",
+      "schema_version": 1,
+      "tool_version": "9.9.9",
+      "phase": "model",
+      "job_id": "1000",
+      "restart": 0,
+      "node": "fake-node0",
+      "node_index": 0,
+      "nodes": 1,
+      "partition": null,
+      "cpus_on_node": null,
+      "instance_type": null,
+      "cpu_model": null,
+      "ncpus": null,
+      "mem_total_bytes": null,
+      "kernel": null,
+      "job_cgroup": null,
+      "own_step_cgroup": null,
+      "workspace_mount": null,
+      "interval_s": 5,
+      "workspace_interval_s": 60,
+      "started_at": "2000-01-01T00:00:00.000Z"
+     }
+    ]
+   },
+   "rows": []
+  },
+  "summary": {
+   "kind": "hpcmu.telemetry.summary",
+   "schema_version": 1,
+   "run": {
+    "run_id": "run-1",
+    "model": "fake",
+    "tool_version": "9.9.9",
+    "interval_s": 5,
+    "workspace_interval_s": 60
+   },
+   "jobs": [
+    {
+     "phase": "model",
+     "job_id": "1000",
+     "nodes": [
+      {
+       "header": {
+        "kind": "hpcmu.telemetry.header",
+        "schema_version": 1,
+        "tool_version": "9.9.9",
+        "phase": "model",
+        "job_id": "1000",
+        "restart": 0,
+        "node": "fake-node0",
+        "node_index": 0,
+        "nodes": 1,
+        "partition": null,
+        "cpus_on_node": null,
+        "instance_type": null,
+        "cpu_model": null,
+        "ncpus": null,
+        "mem_total_bytes": null,
+        "kernel": null,
+        "job_cgroup": null,
+        "own_step_cgroup": null,
+        "workspace_mount": null,
+        "interval_s": 5,
+        "workspace_interval_s": 60,
+        "started_at": "2000-01-01T00:00:00.000Z"
+       },
+       "first_ts": 946684805000,
+       "last_ts": 946684820000,
+       "samples": 2,
+       "gaps": 0,
+       "max_gap_s": 5.0,
+       "stats": {
+        "sample_cost_ms_mean": 0.1484375,
+        "sample_cost_ms_p95": 0.16953125,
+        "sample_cost_ms_p99": 0.17140624999999998,
+        "sample_cost_ms_max": 0.171875,
+        "cpu_busy_cores_min": 2.0,
+        "cpu_busy_cores_mean": 2.375,
+        "cpu_busy_cores_p95": 2.7125,
+        "cpu_busy_cores_max": 2.75,
+        "cpu_util_min": 0.5,
+        "cpu_util_mean": 0.5234375,
+        "cpu_util_p95": 0.54453125,
+        "cpu_util_max": 0.546875,
+        "mem_available_bytes_min": 8586788864,
+        "mem_available_bytes_mean": 8588361728.0,
+        "mem_available_bytes_p95": 8589777305.6,
+        "mem_available_bytes_max": 8589934592,
+        "job_mem_peak_bytes_max": 1076887552,
+        "disk_write_bytes_per_s_mean": 250.75,
+        "disk_write_bytes_per_s_p95": 385.75,
+        "disk_write_bytes_per_s_max": 400.75,
+        "disk_write_bytes_total": 2507.5,
+        "nfs_read_bytes_per_s_mean": 2500.25,
+        "nfs_read_bytes_per_s_p95": 3850.25,
+        "nfs_read_bytes_per_s_max": 4000.25,
+        "nfs_read_bytes_total": 25002.5
+       }
+      }
+     ]
+    }
+   ],
+   "workspace": {
+    "walks": 0,
+    "stats": {}
+   },
+   "headline": {
+    "job_ids": {
+     "model": "1000"
+    },
+    "values": {
+     "model.job_mem_peak_bytes_max": 1076887552,
+     "model.mem_available_bytes_min": 8586788864,
+     "model.cpu_busy_cores_mean": 2.375,
+     "model.cpu_busy_cores_p95": 2.7125,
+     "model.cpu_util_mean": 0.5234375,
+     "model.nfs_read_bytes_total": 25002.5,
+     "model.disk_write_bytes_total": 2507.5
+    }
+   },
+   "warnings": [
+    {
+     "code": "bad_line",
+     "phase": "model",
+     "job_id": "1000",
+     "restart": 0,
+     "node_index": 0,
+     "count": 1,
+     "message": "not ASCII JSON"
+    }
+   ]
+  }
+ },
+ "missing_node": {
+  "samples": {
+   "schema": [
+    [
+     "ts",
+     "timestamp[ms, tz=UTC]",
+     false
+    ],
+    [
+     "phase",
+     "string",
+     false
+    ],
+    [
+     "job_id",
+     "string",
+     false
+    ],
+    [
+     "restart",
+     "int16",
+     false
+    ],
+    [
+     "node",
+     "string",
+     false
+    ],
+    [
+     "node_index",
+     "int16",
+     false
+    ],
+    [
+     "seq",
+     "int32",
+     false
+    ],
+    [
+     "dt_s",
+     "float",
+     true
+    ],
+    [
+     "sample_cost_ms",
+     "float",
+     true
+    ],
+    [
+     "sampler_maxrss_bytes",
+     "int64",
+     true
+    ],
+    [
+     "cpu_busy_cores",
+     "float",
+     true
+    ],
+    [
+     "cpu_util",
+     "float",
+     true
+    ],
+    [
+     "cpu_user_cores",
+     "float",
+     true
+    ],
+    [
+     "cpu_system_cores",
+     "float",
+     true
+    ],
+    [
+     "cpu_iowait_cores",
+     "float",
+     true
+    ],
+    [
+     "cpu_steal_cores",
+     "float",
+     true
+    ],
+    [
+     "cpu_core_util_min",
+     "float",
+     true
+    ],
+    [
+     "cpu_core_util_p50",
+     "float",
+     true
+    ],
+    [
+     "cpu_core_util_max",
+     "float",
+     true
+    ],
+    [
+     "cpu_active_cores",
+     "int16",
+     true
+    ],
+    [
+     "load1",
+     "float",
+     true
+    ],
+    [
+     "procs_running",
+     "int32",
+     true
+    ],
+    [
+     "procs_blocked",
+     "int32",
+     true
+    ],
+    [
+     "mem_used_bytes",
+     "int64",
+     true
+    ],
+    [
+     "mem_available_bytes",
+     "int64",
+     true
+    ],
+    [
+     "mem_anon_bytes",
+     "int64",
+     true
+    ],
+    [
+     "mem_cached_bytes",
+     "int64",
+     true
+    ],
+    [
+     "mem_shmem_bytes",
+     "int64",
+     true
+    ],
+    [
+     "mem_dirty_bytes",
+     "int64",
+     true
+    ],
+    [
+     "mem_writeback_bytes",
+     "int64",
+     true
+    ],
+    [
+     "mem_slab_bytes",
+     "int64",
+     true
+    ],
+    [
+     "swap_used_bytes",
+     "int64",
+     true
+    ],
+    [
+     "major_faults_per_s",
+     "float",
+     true
+    ],
+    [
+     "oom_kills",
+     "int32",
+     true
+    ],
+    [
+     "job_cpu_cores",
+     "float",
+     true
+    ],
+    [
+     "job_mem_bytes",
+     "int64",
+     true
+    ],
+    [
+     "job_mem_anon_bytes",
+     "int64",
+     true
+    ],
+    [
+     "job_mem_file_bytes",
+     "int64",
+     true
+    ],
+    [
+     "job_mem_shmem_bytes",
+     "int64",
+     true
+    ],
+    [
+     "job_mem_peak_bytes",
+     "int64",
+     true
+    ],
+    [
+     "job_pids",
+     "int32",
+     true
+    ],
+    [
+     "job_oom_kills",
+     "int32",
+     true
+    ],
+    [
+     "psi_cpu_some",
+     "float",
+     true
+    ],
+    [
+     "psi_mem_some",
+     "float",
+     true
+    ],
+    [
+     "psi_mem_full",
+     "float",
+     true
+    ],
+    [
+     "psi_io_some",
+     "float",
+     true
+    ],
+    [
+     "psi_io_full",
+     "float",
+     true
+    ],
+    [
+     "disk_read_bytes_per_s",
+     "double",
+     true
+    ],
+    [
+     "disk_write_bytes_per_s",
+     "double",
+     true
+    ],
+    [
+     "disk_busy_max",
+     "float",
+     true
+    ],
+    [
+     "nfs_read_bytes_per_s",
+     "double",
+     true
+    ],
+    [
+     "nfs_write_bytes_per_s",
+     "double",
+     true
+    ],
+    [
+     "nfs_server_read_bytes_per_s",
+     "double",
+     true
+    ],
+    [
+     "nfs_server_write_bytes_per_s",
+     "double",
+     true
+    ],
+    [
+     "nfs_read_ops_per_s",
+     "float",
+     true
+    ],
+    [
+     "nfs_write_ops_per_s",
+     "float",
+     true
+    ],
+    [
+     "nfs_ops_per_s",
+     "float",
+     true
+    ],
+    [
+     "nfs_read_rtt_ms",
+     "float",
+     true
+    ],
+    [
+     "nfs_write_rtt_ms",
+     "float",
+     true
+    ],
+    [
+     "net_rx_bytes_per_s",
+     "double",
+     true
+    ],
+    [
+     "net_tx_bytes_per_s",
+     "double",
+     true
+    ],
+    [
+     "net_errors_per_s",
+     "float",
+     true
+    ],
+    [
+     "efa_rx_bytes_per_s",
+     "double",
+     true
+    ],
+    [
+     "efa_tx_bytes_per_s",
+     "double",
+     true
+    ]
+   ],
+   "kv": {
+    "hpcmu.telemetry.schema_version": "1",
+    "hpcmu.telemetry.kind": "hpcmu.telemetry.samples",
+    "hpcmu.tool_version": "9.9.9",
+    "hpcmu.run_id": "run-1",
+    "hpcmu.model": "fake",
+    "hpcmu.headers": [
+     {
+      "kind": "hpcmu.telemetry.header",
+      "schema_version": 1,
+      "tool_version": "9.9.9",
+      "phase": "model",
+      "job_id": "1000",
+      "restart": 0,
+      "node": "fake-node0",
+      "node_index": 0,
+      "nodes": 2,
+      "partition": null,
+      "cpus_on_node": null,
+      "instance_type": null,
+      "cpu_model": null,
+      "ncpus": null,
+      "mem_total_bytes": null,
+      "kernel": null,
+      "job_cgroup": null,
+      "own_step_cgroup": null,
+      "workspace_mount": null,
+      "interval_s": 5,
+      "workspace_interval_s": 60,
+      "started_at": "2000-01-01T00:00:00.000Z"
+     }
+    ]
+   },
+   "rows": [
+    {
+     "ts": 946684805000,
+     "phase": "model",
+     "job_id": "1000",
+     "restart": 0,
+     "node": "fake-node0",
+     "node_index": 0,
+     "seq": 0,
+     "dt_s": 5.0,
+     "sample_cost_ms": 0.125,
+     "cpu_busy_cores": 2.0,
+     "cpu_util": 0.5,
+     "mem_available_bytes": 8589934592,
+     "job_mem_peak_bytes": 1073741824,
+     "disk_write_bytes_per_s": 100.75,
+     "nfs_read_bytes_per_s": 1000.25
+    },
+    {
+     "ts": 946684810000,
+     "phase": "model",
+     "job_id": "1000",
+     "restart": 0,
+     "node": "fake-node0",
+     "node_index": 0,
+     "seq": 1,
+     "dt_s": 5.0,
+     "sample_cost_ms": 0.140625,
+     "cpu_busy_cores": 2.25,
+     "cpu_util": 0.515625,
+     "mem_available_bytes": 8588886016,
+     "job_mem_peak_bytes": 1074790400,
+     "disk_write_bytes_per_s": 200.75,
+     "nfs_read_bytes_per_s": 2000.25
+    },
+    {
+     "ts": 946684815000,
+     "phase": "model",
+     "job_id": "1000",
+     "restart": 0,
+     "node": "fake-node0",
+     "node_index": 0,
+     "seq": 2,
+     "dt_s": 5.0,
+     "sample_cost_ms": 0.15625,
+     "cpu_busy_cores": 2.5,
+     "cpu_util": 0.53125,
+     "mem_available_bytes": 8587837440,
+     "job_mem_peak_bytes": 1075838976,
+     "disk_write_bytes_per_s": 300.75,
+     "nfs_read_bytes_per_s": 3000.25
+    }
+   ]
+  },
+  "workspace": {
+   "schema": [
+    [
+     "ts",
+     "timestamp[ms, tz=UTC]",
+     false
+    ],
+    [
+     "phase",
+     "string",
+     false
+    ],
+    [
+     "job_id",
+     "string",
+     false
+    ],
+    [
+     "restart",
+     "int16",
+     false
+    ],
+    [
+     "node",
+     "string",
+     false
+    ],
+    [
+     "apparent_bytes",
+     "int64",
+     true
+    ],
+    [
+     "allocated_bytes",
+     "int64",
+     true
+    ],
+    [
+     "files",
+     "int64",
+     true
+    ],
+    [
+     "dirs",
+     "int64",
+     true
+    ],
+    [
+     "walk_s",
+     "float",
+     true
+    ],
+    [
+     "fs_used_bytes",
+     "int64",
+     true
+    ],
+    [
+     "fs_avail_bytes",
+     "int64",
+     true
+    ]
+   ],
+   "kv": {
+    "hpcmu.telemetry.schema_version": "1",
+    "hpcmu.telemetry.kind": "hpcmu.telemetry.workspace",
+    "hpcmu.tool_version": "9.9.9",
+    "hpcmu.run_id": "run-1",
+    "hpcmu.model": "fake",
+    "hpcmu.headers": [
+     {
+      "kind": "hpcmu.telemetry.header",
+      "schema_version": 1,
+      "tool_version": "9.9.9",
+      "phase": "model",
+      "job_id": "1000",
+      "restart": 0,
+      "node": "fake-node0",
+      "node_index": 0,
+      "nodes": 2,
+      "partition": null,
+      "cpus_on_node": null,
+      "instance_type": null,
+      "cpu_model": null,
+      "ncpus": null,
+      "mem_total_bytes": null,
+      "kernel": null,
+      "job_cgroup": null,
+      "own_step_cgroup": null,
+      "workspace_mount": null,
+      "interval_s": 5,
+      "workspace_interval_s": 60,
+      "started_at": "2000-01-01T00:00:00.000Z"
+     }
+    ]
+   },
+   "rows": []
+  },
+  "summary": {
+   "kind": "hpcmu.telemetry.summary",
+   "schema_version": 1,
+   "run": {
+    "run_id": "run-1",
+    "model": "fake",
+    "tool_version": "9.9.9",
+    "interval_s": 5,
+    "workspace_interval_s": 60
+   },
+   "jobs": [
+    {
+     "phase": "model",
+     "job_id": "1000",
+     "nodes": [
+      {
+       "header": {
+        "kind": "hpcmu.telemetry.header",
+        "schema_version": 1,
+        "tool_version": "9.9.9",
+        "phase": "model",
+        "job_id": "1000",
+        "restart": 0,
+        "node": "fake-node0",
+        "node_index": 0,
+        "nodes": 2,
+        "partition": null,
+        "cpus_on_node": null,
+        "instance_type": null,
+        "cpu_model": null,
+        "ncpus": null,
+        "mem_total_bytes": null,
+        "kernel": null,
+        "job_cgroup": null,
+        "own_step_cgroup": null,
+        "workspace_mount": null,
+        "interval_s": 5,
+        "workspace_interval_s": 60,
+        "started_at": "2000-01-01T00:00:00.000Z"
+       },
+       "first_ts": 946684805000,
+       "last_ts": 946684815000,
+       "samples": 3,
+       "gaps": 0,
+       "max_gap_s": 5.0,
+       "stats": {
+        "sample_cost_ms_mean": 0.140625,
+        "sample_cost_ms_p95": 0.1546875,
+        "sample_cost_ms_p99": 0.1559375,
+        "sample_cost_ms_max": 0.15625,
+        "cpu_busy_cores_min": 2.0,
+        "cpu_busy_cores_mean": 2.25,
+        "cpu_busy_cores_p95": 2.475,
+        "cpu_busy_cores_max": 2.5,
+        "cpu_util_min": 0.5,
+        "cpu_util_mean": 0.515625,
+        "cpu_util_p95": 0.5296875,
+        "cpu_util_max": 0.53125,
+        "mem_available_bytes_min": 8587837440,
+        "mem_available_bytes_mean": 8588886016.0,
+        "mem_available_bytes_p95": 8589829734.4,
+        "mem_available_bytes_max": 8589934592,
+        "job_mem_peak_bytes_max": 1075838976,
+        "disk_write_bytes_per_s_mean": 200.75,
+        "disk_write_bytes_per_s_p95": 290.75,
+        "disk_write_bytes_per_s_max": 300.75,
+        "disk_write_bytes_total": 3011.25,
+        "nfs_read_bytes_per_s_mean": 2000.25,
+        "nfs_read_bytes_per_s_p95": 2900.25,
+        "nfs_read_bytes_per_s_max": 3000.25,
+        "nfs_read_bytes_total": 30003.75
+       }
+      }
+     ]
+    }
+   ],
+   "workspace": {
+    "walks": 0,
+    "stats": {}
+   },
+   "headline": {
+    "job_ids": {
+     "model": "1000"
+    },
+    "values": {
+     "model.job_mem_peak_bytes_max": 1075838976,
+     "model.mem_available_bytes_min": 8587837440,
+     "model.cpu_busy_cores_mean": 2.25,
+     "model.cpu_busy_cores_p95": 2.475,
+     "model.cpu_util_mean": 0.515625,
+     "model.nfs_read_bytes_total": 30003.75,
+     "model.disk_write_bytes_total": 3011.25
+    }
+   },
+   "warnings": [
+    {
+     "code": "missing_node",
+     "phase": "model",
+     "job_id": "1000",
+     "restart": 0,
+     "node_index": 1,
+     "count": 1,
+     "message": "no valid staging file"
+    }
+   ]
+  }
+ },
+ "requeue": {
+  "samples": {
+   "schema": [
+    [
+     "ts",
+     "timestamp[ms, tz=UTC]",
+     false
+    ],
+    [
+     "phase",
+     "string",
+     false
+    ],
+    [
+     "job_id",
+     "string",
+     false
+    ],
+    [
+     "restart",
+     "int16",
+     false
+    ],
+    [
+     "node",
+     "string",
+     false
+    ],
+    [
+     "node_index",
+     "int16",
+     false
+    ],
+    [
+     "seq",
+     "int32",
+     false
+    ],
+    [
+     "dt_s",
+     "float",
+     true
+    ],
+    [
+     "sample_cost_ms",
+     "float",
+     true
+    ],
+    [
+     "sampler_maxrss_bytes",
+     "int64",
+     true
+    ],
+    [
+     "cpu_busy_cores",
+     "float",
+     true
+    ],
+    [
+     "cpu_util",
+     "float",
+     true
+    ],
+    [
+     "cpu_user_cores",
+     "float",
+     true
+    ],
+    [
+     "cpu_system_cores",
+     "float",
+     true
+    ],
+    [
+     "cpu_iowait_cores",
+     "float",
+     true
+    ],
+    [
+     "cpu_steal_cores",
+     "float",
+     true
+    ],
+    [
+     "cpu_core_util_min",
+     "float",
+     true
+    ],
+    [
+     "cpu_core_util_p50",
+     "float",
+     true
+    ],
+    [
+     "cpu_core_util_max",
+     "float",
+     true
+    ],
+    [
+     "cpu_active_cores",
+     "int16",
+     true
+    ],
+    [
+     "load1",
+     "float",
+     true
+    ],
+    [
+     "procs_running",
+     "int32",
+     true
+    ],
+    [
+     "procs_blocked",
+     "int32",
+     true
+    ],
+    [
+     "mem_used_bytes",
+     "int64",
+     true
+    ],
+    [
+     "mem_available_bytes",
+     "int64",
+     true
+    ],
+    [
+     "mem_anon_bytes",
+     "int64",
+     true
+    ],
+    [
+     "mem_cached_bytes",
+     "int64",
+     true
+    ],
+    [
+     "mem_shmem_bytes",
+     "int64",
+     true
+    ],
+    [
+     "mem_dirty_bytes",
+     "int64",
+     true
+    ],
+    [
+     "mem_writeback_bytes",
+     "int64",
+     true
+    ],
+    [
+     "mem_slab_bytes",
+     "int64",
+     true
+    ],
+    [
+     "swap_used_bytes",
+     "int64",
+     true
+    ],
+    [
+     "major_faults_per_s",
+     "float",
+     true
+    ],
+    [
+     "oom_kills",
+     "int32",
+     true
+    ],
+    [
+     "job_cpu_cores",
+     "float",
+     true
+    ],
+    [
+     "job_mem_bytes",
+     "int64",
+     true
+    ],
+    [
+     "job_mem_anon_bytes",
+     "int64",
+     true
+    ],
+    [
+     "job_mem_file_bytes",
+     "int64",
+     true
+    ],
+    [
+     "job_mem_shmem_bytes",
+     "int64",
+     true
+    ],
+    [
+     "job_mem_peak_bytes",
+     "int64",
+     true
+    ],
+    [
+     "job_pids",
+     "int32",
+     true
+    ],
+    [
+     "job_oom_kills",
+     "int32",
+     true
+    ],
+    [
+     "psi_cpu_some",
+     "float",
+     true
+    ],
+    [
+     "psi_mem_some",
+     "float",
+     true
+    ],
+    [
+     "psi_mem_full",
+     "float",
+     true
+    ],
+    [
+     "psi_io_some",
+     "float",
+     true
+    ],
+    [
+     "psi_io_full",
+     "float",
+     true
+    ],
+    [
+     "disk_read_bytes_per_s",
+     "double",
+     true
+    ],
+    [
+     "disk_write_bytes_per_s",
+     "double",
+     true
+    ],
+    [
+     "disk_busy_max",
+     "float",
+     true
+    ],
+    [
+     "nfs_read_bytes_per_s",
+     "double",
+     true
+    ],
+    [
+     "nfs_write_bytes_per_s",
+     "double",
+     true
+    ],
+    [
+     "nfs_server_read_bytes_per_s",
+     "double",
+     true
+    ],
+    [
+     "nfs_server_write_bytes_per_s",
+     "double",
+     true
+    ],
+    [
+     "nfs_read_ops_per_s",
+     "float",
+     true
+    ],
+    [
+     "nfs_write_ops_per_s",
+     "float",
+     true
+    ],
+    [
+     "nfs_ops_per_s",
+     "float",
+     true
+    ],
+    [
+     "nfs_read_rtt_ms",
+     "float",
+     true
+    ],
+    [
+     "nfs_write_rtt_ms",
+     "float",
+     true
+    ],
+    [
+     "net_rx_bytes_per_s",
+     "double",
+     true
+    ],
+    [
+     "net_tx_bytes_per_s",
+     "double",
+     true
+    ],
+    [
+     "net_errors_per_s",
+     "float",
+     true
+    ],
+    [
+     "efa_rx_bytes_per_s",
+     "double",
+     true
+    ],
+    [
+     "efa_tx_bytes_per_s",
+     "double",
+     true
+    ]
+   ],
+   "kv": {
+    "hpcmu.telemetry.schema_version": "1",
+    "hpcmu.telemetry.kind": "hpcmu.telemetry.samples",
+    "hpcmu.tool_version": "9.9.9",
+    "hpcmu.run_id": "run-1",
+    "hpcmu.model": "fake",
+    "hpcmu.headers": [
+     {
+      "kind": "hpcmu.telemetry.header",
+      "schema_version": 1,
+      "tool_version": "9.9.9",
+      "phase": "finalize",
+      "job_id": "1001",
+      "restart": 0,
+      "node": "fake-node0",
+      "node_index": 0,
+      "nodes": 1,
+      "partition": null,
+      "cpus_on_node": null,
+      "instance_type": null,
+      "cpu_model": null,
+      "ncpus": null,
+      "mem_total_bytes": null,
+      "kernel": null,
+      "job_cgroup": null,
+      "own_step_cgroup": null,
+      "workspace_mount": null,
+      "interval_s": 5,
+      "workspace_interval_s": 60,
+      "started_at": "2000-01-01T00:00:00.000Z"
+     },
+     {
+      "kind": "hpcmu.telemetry.header",
+      "schema_version": 1,
+      "tool_version": "9.9.9",
+      "phase": "model",
+      "job_id": "1000",
+      "restart": 0,
+      "node": "fake-node0",
+      "node_index": 0,
+      "nodes": 1,
+      "partition": null,
+      "cpus_on_node": null,
+      "instance_type": null,
+      "cpu_model": null,
+      "ncpus": null,
+      "mem_total_bytes": null,
+      "kernel": null,
+      "job_cgroup": null,
+      "own_step_cgroup": null,
+      "workspace_mount": null,
+      "interval_s": 5,
+      "workspace_interval_s": 60,
+      "started_at": "2000-01-01T00:00:00.000Z"
+     },
+     {
+      "kind": "hpcmu.telemetry.header",
+      "schema_version": 1,
+      "tool_version": "9.9.9",
+      "phase": "model",
+      "job_id": "1000",
+      "restart": 1,
+      "node": "fake-node0",
+      "node_index": 0,
+      "nodes": 1,
+      "partition": null,
+      "cpus_on_node": null,
+      "instance_type": null,
+      "cpu_model": null,
+      "ncpus": null,
+      "mem_total_bytes": null,
+      "kernel": null,
+      "job_cgroup": null,
+      "own_step_cgroup": null,
+      "workspace_mount": null,
+      "interval_s": 5,
+      "workspace_interval_s": 60,
+      "started_at": "2000-01-01T00:00:00.000Z"
+     }
+    ]
+   },
+   "rows": [
+    {
+     "ts": 946684805000,
+     "phase": "finalize",
+     "job_id": "1001",
+     "restart": 0,
+     "node": "fake-node0",
+     "node_index": 0,
+     "seq": 0,
+     "dt_s": 5.0,
+     "sample_cost_ms": 0.375,
+     "cpu_busy_cores": 6.0,
+     "cpu_util": 0.75,
+     "mem_available_bytes": 8573157376,
+     "job_mem_peak_bytes": 1090519040,
+     "disk_write_bytes_per_s": 1700.75,
+     "nfs_read_bytes_per_s": 17000.25
+    },
+    {
+     "ts": 946684810000,
+     "phase": "finalize",
+     "job_id": "1001",
+     "restart": 0,
+     "node": "fake-node0",
+     "node_index": 0,
+     "seq": 1,
+     "dt_s": 5.0,
+     "sample_cost_ms": 0.390625,
+     "cpu_busy_cores": 6.25,
+     "cpu_util": 0.765625,
+     "mem_available_bytes": 8572108800,
+     "job_mem_peak_bytes": 1091567616,
+     "disk_write_bytes_per_s": 1800.75,
+     "nfs_read_bytes_per_s": 18000.25
+    },
+    {
+     "ts": 946684805000,
+     "phase": "model",
+     "job_id": "1000",
+     "restart": 0,
+     "node": "fake-node0",
+     "node_index": 0,
+     "seq": 0,
+     "dt_s": 5.0,
+     "sample_cost_ms": 0.125,
+     "cpu_busy_cores": 2.0,
+     "cpu_util": 0.5,
+     "mem_available_bytes": 8589934592,
+     "job_mem_peak_bytes": 1073741824,
+     "disk_write_bytes_per_s": 100.75,
+     "nfs_read_bytes_per_s": 1000.25
+    },
+    {
+     "ts": 946684810000,
+     "phase": "model",
+     "job_id": "1000",
+     "restart": 0,
+     "node": "fake-node0",
+     "node_index": 0,
+     "seq": 1,
+     "dt_s": 5.0,
+     "sample_cost_ms": 0.140625,
+     "cpu_busy_cores": 2.25,
+     "cpu_util": 0.515625,
+     "mem_available_bytes": 8588886016,
+     "job_mem_peak_bytes": 1074790400,
+     "disk_write_bytes_per_s": 200.75,
+     "nfs_read_bytes_per_s": 2000.25
+    },
+    {
+     "ts": 946684815000,
+     "phase": "model",
+     "job_id": "1000",
+     "restart": 0,
+     "node": "fake-node0",
+     "node_index": 0,
+     "seq": 2,
+     "dt_s": 5.0,
+     "sample_cost_ms": 0.15625,
+     "cpu_busy_cores": 2.5,
+     "cpu_util": 0.53125,
+     "mem_available_bytes": 8587837440,
+     "job_mem_peak_bytes": 1075838976,
+     "disk_write_bytes_per_s": 300.75,
+     "nfs_read_bytes_per_s": 3000.25
+    },
+    {
+     "ts": 946684805000,
+     "phase": "model",
+     "job_id": "1000",
+     "restart": 1,
+     "node": "fake-node0",
+     "node_index": 0,
+     "seq": 0,
+     "dt_s": 5.0,
+     "sample_cost_ms": 0.25,
+     "cpu_busy_cores": 4.0,
+     "cpu_util": 0.625,
+     "mem_available_bytes": 8581545984,
+     "job_mem_peak_bytes": 1082130432,
+     "disk_write_bytes_per_s": 900.75,
+     "nfs_read_bytes_per_s": 9000.25
+    },
+    {
+     "ts": 946684810000,
+     "phase": "model",
+     "job_id": "1000",
+     "restart": 1,
+     "node": "fake-node0",
+     "node_index": 0,
+     "seq": 1,
+     "dt_s": 5.0,
+     "sample_cost_ms": 0.265625,
+     "cpu_busy_cores": 4.25,
+     "cpu_util": 0.640625,
+     "mem_available_bytes": 8580497408,
+     "job_mem_peak_bytes": 1083179008,
+     "disk_write_bytes_per_s": 1000.75,
+     "nfs_read_bytes_per_s": 10000.25
+    },
+    {
+     "ts": 946684815000,
+     "phase": "model",
+     "job_id": "1000",
+     "restart": 1,
+     "node": "fake-node0",
+     "node_index": 0,
+     "seq": 2,
+     "dt_s": 5.0,
+     "sample_cost_ms": 0.28125,
+     "cpu_busy_cores": 4.5,
+     "cpu_util": 0.65625,
+     "mem_available_bytes": 8579448832,
+     "job_mem_peak_bytes": 1084227584,
+     "disk_write_bytes_per_s": 1100.75,
+     "nfs_read_bytes_per_s": 11000.25
+    }
+   ]
+  },
+  "workspace": {
+   "schema": [
+    [
+     "ts",
+     "timestamp[ms, tz=UTC]",
+     false
+    ],
+    [
+     "phase",
+     "string",
+     false
+    ],
+    [
+     "job_id",
+     "string",
+     false
+    ],
+    [
+     "restart",
+     "int16",
+     false
+    ],
+    [
+     "node",
+     "string",
+     false
+    ],
+    [
+     "apparent_bytes",
+     "int64",
+     true
+    ],
+    [
+     "allocated_bytes",
+     "int64",
+     true
+    ],
+    [
+     "files",
+     "int64",
+     true
+    ],
+    [
+     "dirs",
+     "int64",
+     true
+    ],
+    [
+     "walk_s",
+     "float",
+     true
+    ],
+    [
+     "fs_used_bytes",
+     "int64",
+     true
+    ],
+    [
+     "fs_avail_bytes",
+     "int64",
+     true
+    ]
+   ],
+   "kv": {
+    "hpcmu.telemetry.schema_version": "1",
+    "hpcmu.telemetry.kind": "hpcmu.telemetry.workspace",
+    "hpcmu.tool_version": "9.9.9",
+    "hpcmu.run_id": "run-1",
+    "hpcmu.model": "fake",
+    "hpcmu.headers": [
+     {
+      "kind": "hpcmu.telemetry.header",
+      "schema_version": 1,
+      "tool_version": "9.9.9",
+      "phase": "finalize",
+      "job_id": "1001",
+      "restart": 0,
+      "node": "fake-node0",
+      "node_index": 0,
+      "nodes": 1,
+      "partition": null,
+      "cpus_on_node": null,
+      "instance_type": null,
+      "cpu_model": null,
+      "ncpus": null,
+      "mem_total_bytes": null,
+      "kernel": null,
+      "job_cgroup": null,
+      "own_step_cgroup": null,
+      "workspace_mount": null,
+      "interval_s": 5,
+      "workspace_interval_s": 60,
+      "started_at": "2000-01-01T00:00:00.000Z"
+     },
+     {
+      "kind": "hpcmu.telemetry.header",
+      "schema_version": 1,
+      "tool_version": "9.9.9",
+      "phase": "model",
+      "job_id": "1000",
+      "restart": 0,
+      "node": "fake-node0",
+      "node_index": 0,
+      "nodes": 1,
+      "partition": null,
+      "cpus_on_node": null,
+      "instance_type": null,
+      "cpu_model": null,
+      "ncpus": null,
+      "mem_total_bytes": null,
+      "kernel": null,
+      "job_cgroup": null,
+      "own_step_cgroup": null,
+      "workspace_mount": null,
+      "interval_s": 5,
+      "workspace_interval_s": 60,
+      "started_at": "2000-01-01T00:00:00.000Z"
+     },
+     {
+      "kind": "hpcmu.telemetry.header",
+      "schema_version": 1,
+      "tool_version": "9.9.9",
+      "phase": "model",
+      "job_id": "1000",
+      "restart": 1,
+      "node": "fake-node0",
+      "node_index": 0,
+      "nodes": 1,
+      "partition": null,
+      "cpus_on_node": null,
+      "instance_type": null,
+      "cpu_model": null,
+      "ncpus": null,
+      "mem_total_bytes": null,
+      "kernel": null,
+      "job_cgroup": null,
+      "own_step_cgroup": null,
+      "workspace_mount": null,
+      "interval_s": 5,
+      "workspace_interval_s": 60,
+      "started_at": "2000-01-01T00:00:00.000Z"
+     }
+    ]
+   },
+   "rows": [
+    {
+     "ts": 946684805000,
+     "phase": "model",
+     "job_id": "1000",
+     "restart": 0,
+     "node": "fake-node0",
+     "apparent_bytes": 3221225472,
+     "allocated_bytes": 2147483648,
+     "files": 1000,
+     "dirs": 100,
+     "walk_s": 0.25,
+     "fs_used_bytes": 5497558138880,
+     "fs_avail_bytes": 1099511627776
+    },
+    {
+     "ts": 946684805000,
+     "phase": "model",
+     "job_id": "1000",
+     "restart": 1,
+     "node": "fake-node0",
+     "apparent_bytes": 3229614080,
+     "allocated_bytes": 2155872256,
+     "files": 1008,
+     "dirs": 108,
+     "walk_s": 1.25,
+     "fs_used_bytes": 5506148073472,
+     "fs_avail_bytes": 1090921693184
+    }
+   ]
+  },
+  "summary": {
+   "kind": "hpcmu.telemetry.summary",
+   "schema_version": 1,
+   "run": {
+    "run_id": "run-1",
+    "model": "fake",
+    "tool_version": "9.9.9",
+    "interval_s": 5,
+    "workspace_interval_s": 60
+   },
+   "jobs": [
+    {
+     "phase": "model",
+     "job_id": "1000",
+     "nodes": [
+      {
+       "header": {
+        "kind": "hpcmu.telemetry.header",
+        "schema_version": 1,
+        "tool_version": "9.9.9",
+        "phase": "model",
+        "job_id": "1000",
+        "restart": 0,
+        "node": "fake-node0",
+        "node_index": 0,
+        "nodes": 1,
+        "partition": null,
+        "cpus_on_node": null,
+        "instance_type": null,
+        "cpu_model": null,
+        "ncpus": null,
+        "mem_total_bytes": null,
+        "kernel": null,
+        "job_cgroup": null,
+        "own_step_cgroup": null,
+        "workspace_mount": null,
+        "interval_s": 5,
+        "workspace_interval_s": 60,
+        "started_at": "2000-01-01T00:00:00.000Z"
+       },
+       "first_ts": 946684805000,
+       "last_ts": 946684815000,
+       "samples": 3,
+       "gaps": 0,
+       "max_gap_s": 5.0,
+       "stats": {
+        "sample_cost_ms_mean": 0.140625,
+        "sample_cost_ms_p95": 0.1546875,
+        "sample_cost_ms_p99": 0.1559375,
+        "sample_cost_ms_max": 0.15625,
+        "cpu_busy_cores_min": 2.0,
+        "cpu_busy_cores_mean": 2.25,
+        "cpu_busy_cores_p95": 2.475,
+        "cpu_busy_cores_max": 2.5,
+        "cpu_util_min": 0.5,
+        "cpu_util_mean": 0.515625,
+        "cpu_util_p95": 0.5296875,
+        "cpu_util_max": 0.53125,
+        "mem_available_bytes_min": 8587837440,
+        "mem_available_bytes_mean": 8588886016.0,
+        "mem_available_bytes_p95": 8589829734.4,
+        "mem_available_bytes_max": 8589934592,
+        "job_mem_peak_bytes_max": 1075838976,
+        "disk_write_bytes_per_s_mean": 200.75,
+        "disk_write_bytes_per_s_p95": 290.75,
+        "disk_write_bytes_per_s_max": 300.75,
+        "disk_write_bytes_total": 3011.25,
+        "nfs_read_bytes_per_s_mean": 2000.25,
+        "nfs_read_bytes_per_s_p95": 2900.25,
+        "nfs_read_bytes_per_s_max": 3000.25,
+        "nfs_read_bytes_total": 30003.75
+       }
+      },
+      {
+       "header": {
+        "kind": "hpcmu.telemetry.header",
+        "schema_version": 1,
+        "tool_version": "9.9.9",
+        "phase": "model",
+        "job_id": "1000",
+        "restart": 1,
+        "node": "fake-node0",
+        "node_index": 0,
+        "nodes": 1,
+        "partition": null,
+        "cpus_on_node": null,
+        "instance_type": null,
+        "cpu_model": null,
+        "ncpus": null,
+        "mem_total_bytes": null,
+        "kernel": null,
+        "job_cgroup": null,
+        "own_step_cgroup": null,
+        "workspace_mount": null,
+        "interval_s": 5,
+        "workspace_interval_s": 60,
+        "started_at": "2000-01-01T00:00:00.000Z"
+       },
+       "first_ts": 946684805000,
+       "last_ts": 946684815000,
+       "samples": 3,
+       "gaps": 0,
+       "max_gap_s": 5.0,
+       "stats": {
+        "sample_cost_ms_mean": 0.265625,
+        "sample_cost_ms_p95": 0.2796875,
+        "sample_cost_ms_p99": 0.2809375,
+        "sample_cost_ms_max": 0.28125,
+        "cpu_busy_cores_min": 4.0,
+        "cpu_busy_cores_mean": 4.25,
+        "cpu_busy_cores_p95": 4.475,
+        "cpu_busy_cores_max": 4.5,
+        "cpu_util_min": 0.625,
+        "cpu_util_mean": 0.640625,
+        "cpu_util_p95": 0.6546875,
+        "cpu_util_max": 0.65625,
+        "mem_available_bytes_min": 8579448832,
+        "mem_available_bytes_mean": 8580497408.0,
+        "mem_available_bytes_p95": 8581441126.4,
+        "mem_available_bytes_max": 8581545984,
+        "job_mem_peak_bytes_max": 1084227584,
+        "disk_write_bytes_per_s_mean": 1000.75,
+        "disk_write_bytes_per_s_p95": 1090.75,
+        "disk_write_bytes_per_s_max": 1100.75,
+        "disk_write_bytes_total": 15011.25,
+        "nfs_read_bytes_per_s_mean": 10000.25,
+        "nfs_read_bytes_per_s_p95": 10900.25,
+        "nfs_read_bytes_per_s_max": 11000.25,
+        "nfs_read_bytes_total": 150003.75
+       }
+      }
+     ]
+    },
+    {
+     "phase": "finalize",
+     "job_id": "1001",
+     "nodes": [
+      {
+       "header": {
+        "kind": "hpcmu.telemetry.header",
+        "schema_version": 1,
+        "tool_version": "9.9.9",
+        "phase": "finalize",
+        "job_id": "1001",
+        "restart": 0,
+        "node": "fake-node0",
+        "node_index": 0,
+        "nodes": 1,
+        "partition": null,
+        "cpus_on_node": null,
+        "instance_type": null,
+        "cpu_model": null,
+        "ncpus": null,
+        "mem_total_bytes": null,
+        "kernel": null,
+        "job_cgroup": null,
+        "own_step_cgroup": null,
+        "workspace_mount": null,
+        "interval_s": 5,
+        "workspace_interval_s": 60,
+        "started_at": "2000-01-01T00:00:00.000Z"
+       },
+       "first_ts": 946684805000,
+       "last_ts": 946684810000,
+       "samples": 2,
+       "gaps": 0,
+       "max_gap_s": 5.0,
+       "stats": {
+        "sample_cost_ms_mean": 0.3828125,
+        "sample_cost_ms_p95": 0.38984375,
+        "sample_cost_ms_p99": 0.39046875,
+        "sample_cost_ms_max": 0.390625,
+        "cpu_busy_cores_min": 6.0,
+        "cpu_busy_cores_mean": 6.125,
+        "cpu_busy_cores_p95": 6.2375,
+        "cpu_busy_cores_max": 6.25,
+        "cpu_util_min": 0.75,
+        "cpu_util_mean": 0.7578125,
+        "cpu_util_p95": 0.76484375,
+        "cpu_util_max": 0.765625,
+        "mem_available_bytes_min": 8572108800,
+        "mem_available_bytes_mean": 8572633088.0,
+        "mem_available_bytes_p95": 8573104947.2,
+        "mem_available_bytes_max": 8573157376,
+        "job_mem_peak_bytes_max": 1091567616,
+        "disk_write_bytes_per_s_mean": 1750.75,
+        "disk_write_bytes_per_s_p95": 1795.75,
+        "disk_write_bytes_per_s_max": 1800.75,
+        "disk_write_bytes_total": 17507.5,
+        "nfs_read_bytes_per_s_mean": 17500.25,
+        "nfs_read_bytes_per_s_p95": 17950.25,
+        "nfs_read_bytes_per_s_max": 18000.25,
+        "nfs_read_bytes_total": 175002.5
+       }
+      }
+     ]
+    }
+   ],
+   "workspace": {
+    "walks": 2,
+    "stats": {
+     "apparent_bytes_max": 3229614080,
+     "allocated_bytes_max": 2155872256,
+     "files_max": 1008,
+     "dirs_max": 108,
+     "walk_s_max": 1.25,
+     "fs_used_bytes_max": 5506148073472,
+     "fs_avail_bytes_min": 1090921693184
+    }
+   },
+   "headline": {
+    "job_ids": {
+     "model": "1000",
+     "finalize": "1001"
+    },
+    "values": {
+     "model.job_mem_peak_bytes_max": 1084227584,
+     "model.mem_available_bytes_min": 8579448832,
+     "model.cpu_busy_cores_mean": 3.25,
+     "model.cpu_busy_cores_p95": 4.4375,
+     "model.cpu_util_mean": 0.578125,
+     "model.nfs_read_bytes_total": 180007.5,
+     "model.disk_write_bytes_total": 18022.5,
+     "finalize.job_mem_peak_bytes_max": 1091567616,
+     "finalize.mem_available_bytes_min": 8572108800,
+     "finalize.cpu_busy_cores_mean": 6.125,
+     "finalize.cpu_busy_cores_p95": 6.2375,
+     "finalize.cpu_util_mean": 0.7578125,
+     "finalize.nfs_read_bytes_total": 175002.5,
+     "finalize.disk_write_bytes_total": 17507.5,
+     "workspace.allocated_bytes_max": 2155872256
+    }
+   },
+   "warnings": []
+  }
+ },
+ "error_lines": {
+  "samples": {
+   "schema": [
+    [
+     "ts",
+     "timestamp[ms, tz=UTC]",
+     false
+    ],
+    [
+     "phase",
+     "string",
+     false
+    ],
+    [
+     "job_id",
+     "string",
+     false
+    ],
+    [
+     "restart",
+     "int16",
+     false
+    ],
+    [
+     "node",
+     "string",
+     false
+    ],
+    [
+     "node_index",
+     "int16",
+     false
+    ],
+    [
+     "seq",
+     "int32",
+     false
+    ],
+    [
+     "dt_s",
+     "float",
+     true
+    ],
+    [
+     "sample_cost_ms",
+     "float",
+     true
+    ],
+    [
+     "sampler_maxrss_bytes",
+     "int64",
+     true
+    ],
+    [
+     "cpu_busy_cores",
+     "float",
+     true
+    ],
+    [
+     "cpu_util",
+     "float",
+     true
+    ],
+    [
+     "cpu_user_cores",
+     "float",
+     true
+    ],
+    [
+     "cpu_system_cores",
+     "float",
+     true
+    ],
+    [
+     "cpu_iowait_cores",
+     "float",
+     true
+    ],
+    [
+     "cpu_steal_cores",
+     "float",
+     true
+    ],
+    [
+     "cpu_core_util_min",
+     "float",
+     true
+    ],
+    [
+     "cpu_core_util_p50",
+     "float",
+     true
+    ],
+    [
+     "cpu_core_util_max",
+     "float",
+     true
+    ],
+    [
+     "cpu_active_cores",
+     "int16",
+     true
+    ],
+    [
+     "load1",
+     "float",
+     true
+    ],
+    [
+     "procs_running",
+     "int32",
+     true
+    ],
+    [
+     "procs_blocked",
+     "int32",
+     true
+    ],
+    [
+     "mem_used_bytes",
+     "int64",
+     true
+    ],
+    [
+     "mem_available_bytes",
+     "int64",
+     true
+    ],
+    [
+     "mem_anon_bytes",
+     "int64",
+     true
+    ],
+    [
+     "mem_cached_bytes",
+     "int64",
+     true
+    ],
+    [
+     "mem_shmem_bytes",
+     "int64",
+     true
+    ],
+    [
+     "mem_dirty_bytes",
+     "int64",
+     true
+    ],
+    [
+     "mem_writeback_bytes",
+     "int64",
+     true
+    ],
+    [
+     "mem_slab_bytes",
+     "int64",
+     true
+    ],
+    [
+     "swap_used_bytes",
+     "int64",
+     true
+    ],
+    [
+     "major_faults_per_s",
+     "float",
+     true
+    ],
+    [
+     "oom_kills",
+     "int32",
+     true
+    ],
+    [
+     "job_cpu_cores",
+     "float",
+     true
+    ],
+    [
+     "job_mem_bytes",
+     "int64",
+     true
+    ],
+    [
+     "job_mem_anon_bytes",
+     "int64",
+     true
+    ],
+    [
+     "job_mem_file_bytes",
+     "int64",
+     true
+    ],
+    [
+     "job_mem_shmem_bytes",
+     "int64",
+     true
+    ],
+    [
+     "job_mem_peak_bytes",
+     "int64",
+     true
+    ],
+    [
+     "job_pids",
+     "int32",
+     true
+    ],
+    [
+     "job_oom_kills",
+     "int32",
+     true
+    ],
+    [
+     "psi_cpu_some",
+     "float",
+     true
+    ],
+    [
+     "psi_mem_some",
+     "float",
+     true
+    ],
+    [
+     "psi_mem_full",
+     "float",
+     true
+    ],
+    [
+     "psi_io_some",
+     "float",
+     true
+    ],
+    [
+     "psi_io_full",
+     "float",
+     true
+    ],
+    [
+     "disk_read_bytes_per_s",
+     "double",
+     true
+    ],
+    [
+     "disk_write_bytes_per_s",
+     "double",
+     true
+    ],
+    [
+     "disk_busy_max",
+     "float",
+     true
+    ],
+    [
+     "nfs_read_bytes_per_s",
+     "double",
+     true
+    ],
+    [
+     "nfs_write_bytes_per_s",
+     "double",
+     true
+    ],
+    [
+     "nfs_server_read_bytes_per_s",
+     "double",
+     true
+    ],
+    [
+     "nfs_server_write_bytes_per_s",
+     "double",
+     true
+    ],
+    [
+     "nfs_read_ops_per_s",
+     "float",
+     true
+    ],
+    [
+     "nfs_write_ops_per_s",
+     "float",
+     true
+    ],
+    [
+     "nfs_ops_per_s",
+     "float",
+     true
+    ],
+    [
+     "nfs_read_rtt_ms",
+     "float",
+     true
+    ],
+    [
+     "nfs_write_rtt_ms",
+     "float",
+     true
+    ],
+    [
+     "net_rx_bytes_per_s",
+     "double",
+     true
+    ],
+    [
+     "net_tx_bytes_per_s",
+     "double",
+     true
+    ],
+    [
+     "net_errors_per_s",
+     "float",
+     true
+    ],
+    [
+     "efa_rx_bytes_per_s",
+     "double",
+     true
+    ],
+    [
+     "efa_tx_bytes_per_s",
+     "double",
+     true
+    ]
+   ],
+   "kv": {
+    "hpcmu.telemetry.schema_version": "1",
+    "hpcmu.telemetry.kind": "hpcmu.telemetry.samples",
+    "hpcmu.tool_version": "9.9.9",
+    "hpcmu.run_id": "run-1",
+    "hpcmu.model": "fake",
+    "hpcmu.headers": [
+     {
+      "kind": "hpcmu.telemetry.header",
+      "schema_version": 1,
+      "tool_version": "9.9.9",
+      "phase": "model",
+      "job_id": "1000",
+      "restart": 0,
+      "node": "fake-node0",
+      "node_index": 0,
+      "nodes": 1,
+      "partition": null,
+      "cpus_on_node": null,
+      "instance_type": null,
+      "cpu_model": null,
+      "ncpus": null,
+      "mem_total_bytes": null,
+      "kernel": null,
+      "job_cgroup": null,
+      "own_step_cgroup": null,
+      "workspace_mount": null,
+      "interval_s": 5,
+      "workspace_interval_s": 60,
+      "started_at": "2000-01-01T00:00:00.000Z"
+     }
+    ]
+   },
+   "rows": [
+    {
+     "ts": 946684805000,
+     "phase": "model",
+     "job_id": "1000",
+     "restart": 0,
+     "node": "fake-node0",
+     "node_index": 0,
+     "seq": 0,
+     "dt_s": 5.0,
+     "sample_cost_ms": 0.125,
+     "cpu_busy_cores": 2.0,
+     "cpu_util": 0.5,
+     "mem_available_bytes": 8589934592,
+     "job_mem_peak_bytes": 1073741824,
+     "disk_write_bytes_per_s": 100.75,
+     "nfs_read_bytes_per_s": 1000.25
+    },
+    {
+     "ts": 946684810000,
+     "phase": "model",
+     "job_id": "1000",
+     "restart": 0,
+     "node": "fake-node0",
+     "node_index": 0,
+     "seq": 1,
+     "dt_s": 5.0,
+     "sample_cost_ms": 0.140625,
+     "cpu_busy_cores": 2.25,
+     "cpu_util": 0.515625,
+     "mem_available_bytes": 8588886016,
+     "job_mem_peak_bytes": 1074790400,
+     "disk_write_bytes_per_s": 200.75,
+     "nfs_read_bytes_per_s": 2000.25
+    },
+    {
+     "ts": 946684815000,
+     "phase": "model",
+     "job_id": "1000",
+     "restart": 0,
+     "node": "fake-node0",
+     "node_index": 0,
+     "seq": 2,
+     "dt_s": 5.0,
+     "sample_cost_ms": 0.15625,
+     "cpu_busy_cores": 2.5,
+     "cpu_util": 0.53125,
+     "mem_available_bytes": 8587837440,
+     "job_mem_peak_bytes": 1075838976,
+     "disk_write_bytes_per_s": 300.75,
+     "nfs_read_bytes_per_s": 3000.25
+    }
+   ]
+  },
+  "workspace": {
+   "schema": [
+    [
+     "ts",
+     "timestamp[ms, tz=UTC]",
+     false
+    ],
+    [
+     "phase",
+     "string",
+     false
+    ],
+    [
+     "job_id",
+     "string",
+     false
+    ],
+    [
+     "restart",
+     "int16",
+     false
+    ],
+    [
+     "node",
+     "string",
+     false
+    ],
+    [
+     "apparent_bytes",
+     "int64",
+     true
+    ],
+    [
+     "allocated_bytes",
+     "int64",
+     true
+    ],
+    [
+     "files",
+     "int64",
+     true
+    ],
+    [
+     "dirs",
+     "int64",
+     true
+    ],
+    [
+     "walk_s",
+     "float",
+     true
+    ],
+    [
+     "fs_used_bytes",
+     "int64",
+     true
+    ],
+    [
+     "fs_avail_bytes",
+     "int64",
+     true
+    ]
+   ],
+   "kv": {
+    "hpcmu.telemetry.schema_version": "1",
+    "hpcmu.telemetry.kind": "hpcmu.telemetry.workspace",
+    "hpcmu.tool_version": "9.9.9",
+    "hpcmu.run_id": "run-1",
+    "hpcmu.model": "fake",
+    "hpcmu.headers": [
+     {
+      "kind": "hpcmu.telemetry.header",
+      "schema_version": 1,
+      "tool_version": "9.9.9",
+      "phase": "model",
+      "job_id": "1000",
+      "restart": 0,
+      "node": "fake-node0",
+      "node_index": 0,
+      "nodes": 1,
+      "partition": null,
+      "cpus_on_node": null,
+      "instance_type": null,
+      "cpu_model": null,
+      "ncpus": null,
+      "mem_total_bytes": null,
+      "kernel": null,
+      "job_cgroup": null,
+      "own_step_cgroup": null,
+      "workspace_mount": null,
+      "interval_s": 5,
+      "workspace_interval_s": 60,
+      "started_at": "2000-01-01T00:00:00.000Z"
+     }
+    ]
+   },
+   "rows": []
+  },
+  "summary": {
+   "kind": "hpcmu.telemetry.summary",
+   "schema_version": 1,
+   "run": {
+    "run_id": "run-1",
+    "model": "fake",
+    "tool_version": "9.9.9",
+    "interval_s": 5,
+    "workspace_interval_s": 60
+   },
+   "jobs": [
+    {
+     "phase": "model",
+     "job_id": "1000",
+     "nodes": [
+      {
+       "header": {
+        "kind": "hpcmu.telemetry.header",
+        "schema_version": 1,
+        "tool_version": "9.9.9",
+        "phase": "model",
+        "job_id": "1000",
+        "restart": 0,
+        "node": "fake-node0",
+        "node_index": 0,
+        "nodes": 1,
+        "partition": null,
+        "cpus_on_node": null,
+        "instance_type": null,
+        "cpu_model": null,
+        "ncpus": null,
+        "mem_total_bytes": null,
+        "kernel": null,
+        "job_cgroup": null,
+        "own_step_cgroup": null,
+        "workspace_mount": null,
+        "interval_s": 5,
+        "workspace_interval_s": 60,
+        "started_at": "2000-01-01T00:00:00.000Z"
+       },
+       "first_ts": 946684805000,
+       "last_ts": 946684815000,
+       "samples": 3,
+       "gaps": 0,
+       "max_gap_s": 5.0,
+       "stats": {
+        "sample_cost_ms_mean": 0.140625,
+        "sample_cost_ms_p95": 0.1546875,
+        "sample_cost_ms_p99": 0.1559375,
+        "sample_cost_ms_max": 0.15625,
+        "cpu_busy_cores_min": 2.0,
+        "cpu_busy_cores_mean": 2.25,
+        "cpu_busy_cores_p95": 2.475,
+        "cpu_busy_cores_max": 2.5,
+        "cpu_util_min": 0.5,
+        "cpu_util_mean": 0.515625,
+        "cpu_util_p95": 0.5296875,
+        "cpu_util_max": 0.53125,
+        "mem_available_bytes_min": 8587837440,
+        "mem_available_bytes_mean": 8588886016.0,
+        "mem_available_bytes_p95": 8589829734.4,
+        "mem_available_bytes_max": 8589934592,
+        "job_mem_peak_bytes_max": 1075838976,
+        "disk_write_bytes_per_s_mean": 200.75,
+        "disk_write_bytes_per_s_p95": 290.75,
+        "disk_write_bytes_per_s_max": 300.75,
+        "disk_write_bytes_total": 3011.25,
+        "nfs_read_bytes_per_s_mean": 2000.25,
+        "nfs_read_bytes_per_s_p95": 2900.25,
+        "nfs_read_bytes_per_s_max": 3000.25,
+        "nfs_read_bytes_total": 30003.75
+       }
+      }
+     ]
+    }
+   ],
+   "workspace": {
+    "walks": 0,
+    "stats": {}
+   },
+   "headline": {
+    "job_ids": {
+     "model": "1000"
+    },
+    "values": {
+     "model.job_mem_peak_bytes_max": 1075838976,
+     "model.mem_available_bytes_min": 8587837440,
+     "model.cpu_busy_cores_mean": 2.25,
+     "model.cpu_busy_cores_p95": 2.475,
+     "model.cpu_util_mean": 0.515625,
+     "model.nfs_read_bytes_total": 30003.75,
+     "model.disk_write_bytes_total": 3011.25
+    }
+   },
+   "warnings": [
+    {
+     "code": "sampler_error",
+     "phase": "model",
+     "job_id": "1000",
+     "restart": 0,
+     "node_index": 0,
+     "count": 1,
+     "message": "meminfo OSError: fake read failure"
+    },
+    {
+     "code": "sampler_error",
+     "phase": "model",
+     "job_id": "1000",
+     "restart": 0,
+     "node_index": 0,
+     "count": 1,
+     "message": "diskstats ValueError: fake parse failure"
+    }
+   ]
+  }
+ },
+ "zero_walks": {
+  "samples": {
+   "schema": [
+    [
+     "ts",
+     "timestamp[ms, tz=UTC]",
+     false
+    ],
+    [
+     "phase",
+     "string",
+     false
+    ],
+    [
+     "job_id",
+     "string",
+     false
+    ],
+    [
+     "restart",
+     "int16",
+     false
+    ],
+    [
+     "node",
+     "string",
+     false
+    ],
+    [
+     "node_index",
+     "int16",
+     false
+    ],
+    [
+     "seq",
+     "int32",
+     false
+    ],
+    [
+     "dt_s",
+     "float",
+     true
+    ],
+    [
+     "sample_cost_ms",
+     "float",
+     true
+    ],
+    [
+     "sampler_maxrss_bytes",
+     "int64",
+     true
+    ],
+    [
+     "cpu_busy_cores",
+     "float",
+     true
+    ],
+    [
+     "cpu_util",
+     "float",
+     true
+    ],
+    [
+     "cpu_user_cores",
+     "float",
+     true
+    ],
+    [
+     "cpu_system_cores",
+     "float",
+     true
+    ],
+    [
+     "cpu_iowait_cores",
+     "float",
+     true
+    ],
+    [
+     "cpu_steal_cores",
+     "float",
+     true
+    ],
+    [
+     "cpu_core_util_min",
+     "float",
+     true
+    ],
+    [
+     "cpu_core_util_p50",
+     "float",
+     true
+    ],
+    [
+     "cpu_core_util_max",
+     "float",
+     true
+    ],
+    [
+     "cpu_active_cores",
+     "int16",
+     true
+    ],
+    [
+     "load1",
+     "float",
+     true
+    ],
+    [
+     "procs_running",
+     "int32",
+     true
+    ],
+    [
+     "procs_blocked",
+     "int32",
+     true
+    ],
+    [
+     "mem_used_bytes",
+     "int64",
+     true
+    ],
+    [
+     "mem_available_bytes",
+     "int64",
+     true
+    ],
+    [
+     "mem_anon_bytes",
+     "int64",
+     true
+    ],
+    [
+     "mem_cached_bytes",
+     "int64",
+     true
+    ],
+    [
+     "mem_shmem_bytes",
+     "int64",
+     true
+    ],
+    [
+     "mem_dirty_bytes",
+     "int64",
+     true
+    ],
+    [
+     "mem_writeback_bytes",
+     "int64",
+     true
+    ],
+    [
+     "mem_slab_bytes",
+     "int64",
+     true
+    ],
+    [
+     "swap_used_bytes",
+     "int64",
+     true
+    ],
+    [
+     "major_faults_per_s",
+     "float",
+     true
+    ],
+    [
+     "oom_kills",
+     "int32",
+     true
+    ],
+    [
+     "job_cpu_cores",
+     "float",
+     true
+    ],
+    [
+     "job_mem_bytes",
+     "int64",
+     true
+    ],
+    [
+     "job_mem_anon_bytes",
+     "int64",
+     true
+    ],
+    [
+     "job_mem_file_bytes",
+     "int64",
+     true
+    ],
+    [
+     "job_mem_shmem_bytes",
+     "int64",
+     true
+    ],
+    [
+     "job_mem_peak_bytes",
+     "int64",
+     true
+    ],
+    [
+     "job_pids",
+     "int32",
+     true
+    ],
+    [
+     "job_oom_kills",
+     "int32",
+     true
+    ],
+    [
+     "psi_cpu_some",
+     "float",
+     true
+    ],
+    [
+     "psi_mem_some",
+     "float",
+     true
+    ],
+    [
+     "psi_mem_full",
+     "float",
+     true
+    ],
+    [
+     "psi_io_some",
+     "float",
+     true
+    ],
+    [
+     "psi_io_full",
+     "float",
+     true
+    ],
+    [
+     "disk_read_bytes_per_s",
+     "double",
+     true
+    ],
+    [
+     "disk_write_bytes_per_s",
+     "double",
+     true
+    ],
+    [
+     "disk_busy_max",
+     "float",
+     true
+    ],
+    [
+     "nfs_read_bytes_per_s",
+     "double",
+     true
+    ],
+    [
+     "nfs_write_bytes_per_s",
+     "double",
+     true
+    ],
+    [
+     "nfs_server_read_bytes_per_s",
+     "double",
+     true
+    ],
+    [
+     "nfs_server_write_bytes_per_s",
+     "double",
+     true
+    ],
+    [
+     "nfs_read_ops_per_s",
+     "float",
+     true
+    ],
+    [
+     "nfs_write_ops_per_s",
+     "float",
+     true
+    ],
+    [
+     "nfs_ops_per_s",
+     "float",
+     true
+    ],
+    [
+     "nfs_read_rtt_ms",
+     "float",
+     true
+    ],
+    [
+     "nfs_write_rtt_ms",
+     "float",
+     true
+    ],
+    [
+     "net_rx_bytes_per_s",
+     "double",
+     true
+    ],
+    [
+     "net_tx_bytes_per_s",
+     "double",
+     true
+    ],
+    [
+     "net_errors_per_s",
+     "float",
+     true
+    ],
+    [
+     "efa_rx_bytes_per_s",
+     "double",
+     true
+    ],
+    [
+     "efa_tx_bytes_per_s",
+     "double",
+     true
+    ]
+   ],
+   "kv": {
+    "hpcmu.telemetry.schema_version": "1",
+    "hpcmu.telemetry.kind": "hpcmu.telemetry.samples",
+    "hpcmu.tool_version": "9.9.9",
+    "hpcmu.run_id": "run-1",
+    "hpcmu.model": "fake",
+    "hpcmu.headers": [
+     {
+      "kind": "hpcmu.telemetry.header",
+      "schema_version": 1,
+      "tool_version": "9.9.9",
+      "phase": "model",
+      "job_id": "1000",
+      "restart": 0,
+      "node": "fake-node0",
+      "node_index": 0,
+      "nodes": 1,
+      "partition": null,
+      "cpus_on_node": null,
+      "instance_type": null,
+      "cpu_model": null,
+      "ncpus": null,
+      "mem_total_bytes": null,
+      "kernel": null,
+      "job_cgroup": null,
+      "own_step_cgroup": null,
+      "workspace_mount": null,
+      "interval_s": 5,
+      "workspace_interval_s": 60,
+      "started_at": "2000-01-01T00:00:00.000Z"
+     }
+    ]
+   },
+   "rows": [
+    {
+     "ts": 946684805000,
+     "phase": "model",
+     "job_id": "1000",
+     "restart": 0,
+     "node": "fake-node0",
+     "node_index": 0,
+     "seq": 0,
+     "dt_s": 5.0,
+     "sample_cost_ms": 0.125,
+     "cpu_busy_cores": 2.0,
+     "cpu_util": 0.5,
+     "mem_available_bytes": 8589934592,
+     "job_mem_peak_bytes": 1073741824,
+     "disk_write_bytes_per_s": 100.75,
+     "nfs_read_bytes_per_s": 1000.25
+    },
+    {
+     "ts": 946684810000,
+     "phase": "model",
+     "job_id": "1000",
+     "restart": 0,
+     "node": "fake-node0",
+     "node_index": 0,
+     "seq": 1,
+     "dt_s": 5.0,
+     "sample_cost_ms": 0.140625,
+     "cpu_busy_cores": 2.25,
+     "cpu_util": 0.515625,
+     "mem_available_bytes": 8588886016,
+     "job_mem_peak_bytes": 1074790400,
+     "disk_write_bytes_per_s": 200.75,
+     "nfs_read_bytes_per_s": 2000.25
+    },
+    {
+     "ts": 946684815000,
+     "phase": "model",
+     "job_id": "1000",
+     "restart": 0,
+     "node": "fake-node0",
+     "node_index": 0,
+     "seq": 2,
+     "dt_s": 5.0,
+     "sample_cost_ms": 0.15625,
+     "cpu_busy_cores": 2.5,
+     "cpu_util": 0.53125,
+     "mem_available_bytes": 8587837440,
+     "job_mem_peak_bytes": 1075838976,
+     "disk_write_bytes_per_s": 300.75,
+     "nfs_read_bytes_per_s": 3000.25
+    }
+   ]
+  },
+  "workspace": {
+   "schema": [
+    [
+     "ts",
+     "timestamp[ms, tz=UTC]",
+     false
+    ],
+    [
+     "phase",
+     "string",
+     false
+    ],
+    [
+     "job_id",
+     "string",
+     false
+    ],
+    [
+     "restart",
+     "int16",
+     false
+    ],
+    [
+     "node",
+     "string",
+     false
+    ],
+    [
+     "apparent_bytes",
+     "int64",
+     true
+    ],
+    [
+     "allocated_bytes",
+     "int64",
+     true
+    ],
+    [
+     "files",
+     "int64",
+     true
+    ],
+    [
+     "dirs",
+     "int64",
+     true
+    ],
+    [
+     "walk_s",
+     "float",
+     true
+    ],
+    [
+     "fs_used_bytes",
+     "int64",
+     true
+    ],
+    [
+     "fs_avail_bytes",
+     "int64",
+     true
+    ]
+   ],
+   "kv": {
+    "hpcmu.telemetry.schema_version": "1",
+    "hpcmu.telemetry.kind": "hpcmu.telemetry.workspace",
+    "hpcmu.tool_version": "9.9.9",
+    "hpcmu.run_id": "run-1",
+    "hpcmu.model": "fake",
+    "hpcmu.headers": [
+     {
+      "kind": "hpcmu.telemetry.header",
+      "schema_version": 1,
+      "tool_version": "9.9.9",
+      "phase": "model",
+      "job_id": "1000",
+      "restart": 0,
+      "node": "fake-node0",
+      "node_index": 0,
+      "nodes": 1,
+      "partition": null,
+      "cpus_on_node": null,
+      "instance_type": null,
+      "cpu_model": null,
+      "ncpus": null,
+      "mem_total_bytes": null,
+      "kernel": null,
+      "job_cgroup": null,
+      "own_step_cgroup": null,
+      "workspace_mount": null,
+      "interval_s": 5,
+      "workspace_interval_s": 60,
+      "started_at": "2000-01-01T00:00:00.000Z"
+     }
+    ]
+   },
+   "rows": []
+  },
+  "summary": {
+   "kind": "hpcmu.telemetry.summary",
+   "schema_version": 1,
+   "run": {
+    "run_id": "run-1",
+    "model": "fake",
+    "tool_version": "9.9.9",
+    "interval_s": 5,
+    "workspace_interval_s": 60
+   },
+   "jobs": [
+    {
+     "phase": "model",
+     "job_id": "1000",
+     "nodes": [
+      {
+       "header": {
+        "kind": "hpcmu.telemetry.header",
+        "schema_version": 1,
+        "tool_version": "9.9.9",
+        "phase": "model",
+        "job_id": "1000",
+        "restart": 0,
+        "node": "fake-node0",
+        "node_index": 0,
+        "nodes": 1,
+        "partition": null,
+        "cpus_on_node": null,
+        "instance_type": null,
+        "cpu_model": null,
+        "ncpus": null,
+        "mem_total_bytes": null,
+        "kernel": null,
+        "job_cgroup": null,
+        "own_step_cgroup": null,
+        "workspace_mount": null,
+        "interval_s": 5,
+        "workspace_interval_s": 60,
+        "started_at": "2000-01-01T00:00:00.000Z"
+       },
+       "first_ts": 946684805000,
+       "last_ts": 946684815000,
+       "samples": 3,
+       "gaps": 0,
+       "max_gap_s": 5.0,
+       "stats": {
+        "sample_cost_ms_mean": 0.140625,
+        "sample_cost_ms_p95": 0.1546875,
+        "sample_cost_ms_p99": 0.1559375,
+        "sample_cost_ms_max": 0.15625,
+        "cpu_busy_cores_min": 2.0,
+        "cpu_busy_cores_mean": 2.25,
+        "cpu_busy_cores_p95": 2.475,
+        "cpu_busy_cores_max": 2.5,
+        "cpu_util_min": 0.5,
+        "cpu_util_mean": 0.515625,
+        "cpu_util_p95": 0.5296875,
+        "cpu_util_max": 0.53125,
+        "mem_available_bytes_min": 8587837440,
+        "mem_available_bytes_mean": 8588886016.0,
+        "mem_available_bytes_p95": 8589829734.4,
+        "mem_available_bytes_max": 8589934592,
+        "job_mem_peak_bytes_max": 1075838976,
+        "disk_write_bytes_per_s_mean": 200.75,
+        "disk_write_bytes_per_s_p95": 290.75,
+        "disk_write_bytes_per_s_max": 300.75,
+        "disk_write_bytes_total": 3011.25,
+        "nfs_read_bytes_per_s_mean": 2000.25,
+        "nfs_read_bytes_per_s_p95": 2900.25,
+        "nfs_read_bytes_per_s_max": 3000.25,
+        "nfs_read_bytes_total": 30003.75
+       }
+      }
+     ]
+    }
+   ],
+   "workspace": {
+    "walks": 0,
+    "stats": {}
+   },
+   "headline": {
+    "job_ids": {
+     "model": "1000"
+    },
+    "values": {
+     "model.job_mem_peak_bytes_max": 1075838976,
+     "model.mem_available_bytes_min": 8587837440,
+     "model.cpu_busy_cores_mean": 2.25,
+     "model.cpu_busy_cores_p95": 2.475,
+     "model.cpu_util_mean": 0.515625,
+     "model.nfs_read_bytes_total": 30003.75,
+     "model.disk_write_bytes_total": 3011.25
+    }
+   },
+   "warnings": []
+  }
+ },
+ "non_monotonic_ts": {
+  "samples": {
+   "schema": [
+    [
+     "ts",
+     "timestamp[ms, tz=UTC]",
+     false
+    ],
+    [
+     "phase",
+     "string",
+     false
+    ],
+    [
+     "job_id",
+     "string",
+     false
+    ],
+    [
+     "restart",
+     "int16",
+     false
+    ],
+    [
+     "node",
+     "string",
+     false
+    ],
+    [
+     "node_index",
+     "int16",
+     false
+    ],
+    [
+     "seq",
+     "int32",
+     false
+    ],
+    [
+     "dt_s",
+     "float",
+     true
+    ],
+    [
+     "sample_cost_ms",
+     "float",
+     true
+    ],
+    [
+     "sampler_maxrss_bytes",
+     "int64",
+     true
+    ],
+    [
+     "cpu_busy_cores",
+     "float",
+     true
+    ],
+    [
+     "cpu_util",
+     "float",
+     true
+    ],
+    [
+     "cpu_user_cores",
+     "float",
+     true
+    ],
+    [
+     "cpu_system_cores",
+     "float",
+     true
+    ],
+    [
+     "cpu_iowait_cores",
+     "float",
+     true
+    ],
+    [
+     "cpu_steal_cores",
+     "float",
+     true
+    ],
+    [
+     "cpu_core_util_min",
+     "float",
+     true
+    ],
+    [
+     "cpu_core_util_p50",
+     "float",
+     true
+    ],
+    [
+     "cpu_core_util_max",
+     "float",
+     true
+    ],
+    [
+     "cpu_active_cores",
+     "int16",
+     true
+    ],
+    [
+     "load1",
+     "float",
+     true
+    ],
+    [
+     "procs_running",
+     "int32",
+     true
+    ],
+    [
+     "procs_blocked",
+     "int32",
+     true
+    ],
+    [
+     "mem_used_bytes",
+     "int64",
+     true
+    ],
+    [
+     "mem_available_bytes",
+     "int64",
+     true
+    ],
+    [
+     "mem_anon_bytes",
+     "int64",
+     true
+    ],
+    [
+     "mem_cached_bytes",
+     "int64",
+     true
+    ],
+    [
+     "mem_shmem_bytes",
+     "int64",
+     true
+    ],
+    [
+     "mem_dirty_bytes",
+     "int64",
+     true
+    ],
+    [
+     "mem_writeback_bytes",
+     "int64",
+     true
+    ],
+    [
+     "mem_slab_bytes",
+     "int64",
+     true
+    ],
+    [
+     "swap_used_bytes",
+     "int64",
+     true
+    ],
+    [
+     "major_faults_per_s",
+     "float",
+     true
+    ],
+    [
+     "oom_kills",
+     "int32",
+     true
+    ],
+    [
+     "job_cpu_cores",
+     "float",
+     true
+    ],
+    [
+     "job_mem_bytes",
+     "int64",
+     true
+    ],
+    [
+     "job_mem_anon_bytes",
+     "int64",
+     true
+    ],
+    [
+     "job_mem_file_bytes",
+     "int64",
+     true
+    ],
+    [
+     "job_mem_shmem_bytes",
+     "int64",
+     true
+    ],
+    [
+     "job_mem_peak_bytes",
+     "int64",
+     true
+    ],
+    [
+     "job_pids",
+     "int32",
+     true
+    ],
+    [
+     "job_oom_kills",
+     "int32",
+     true
+    ],
+    [
+     "psi_cpu_some",
+     "float",
+     true
+    ],
+    [
+     "psi_mem_some",
+     "float",
+     true
+    ],
+    [
+     "psi_mem_full",
+     "float",
+     true
+    ],
+    [
+     "psi_io_some",
+     "float",
+     true
+    ],
+    [
+     "psi_io_full",
+     "float",
+     true
+    ],
+    [
+     "disk_read_bytes_per_s",
+     "double",
+     true
+    ],
+    [
+     "disk_write_bytes_per_s",
+     "double",
+     true
+    ],
+    [
+     "disk_busy_max",
+     "float",
+     true
+    ],
+    [
+     "nfs_read_bytes_per_s",
+     "double",
+     true
+    ],
+    [
+     "nfs_write_bytes_per_s",
+     "double",
+     true
+    ],
+    [
+     "nfs_server_read_bytes_per_s",
+     "double",
+     true
+    ],
+    [
+     "nfs_server_write_bytes_per_s",
+     "double",
+     true
+    ],
+    [
+     "nfs_read_ops_per_s",
+     "float",
+     true
+    ],
+    [
+     "nfs_write_ops_per_s",
+     "float",
+     true
+    ],
+    [
+     "nfs_ops_per_s",
+     "float",
+     true
+    ],
+    [
+     "nfs_read_rtt_ms",
+     "float",
+     true
+    ],
+    [
+     "nfs_write_rtt_ms",
+     "float",
+     true
+    ],
+    [
+     "net_rx_bytes_per_s",
+     "double",
+     true
+    ],
+    [
+     "net_tx_bytes_per_s",
+     "double",
+     true
+    ],
+    [
+     "net_errors_per_s",
+     "float",
+     true
+    ],
+    [
+     "efa_rx_bytes_per_s",
+     "double",
+     true
+    ],
+    [
+     "efa_tx_bytes_per_s",
+     "double",
+     true
+    ]
+   ],
+   "kv": {
+    "hpcmu.telemetry.schema_version": "1",
+    "hpcmu.telemetry.kind": "hpcmu.telemetry.samples",
+    "hpcmu.tool_version": "9.9.9",
+    "hpcmu.run_id": "run-1",
+    "hpcmu.model": "fake",
+    "hpcmu.headers": [
+     {
+      "kind": "hpcmu.telemetry.header",
+      "schema_version": 1,
+      "tool_version": "9.9.9",
+      "phase": "model",
+      "job_id": "1000",
+      "restart": 0,
+      "node": "fake-node0",
+      "node_index": 0,
+      "nodes": 1,
+      "partition": null,
+      "cpus_on_node": null,
+      "instance_type": null,
+      "cpu_model": null,
+      "ncpus": null,
+      "mem_total_bytes": null,
+      "kernel": null,
+      "job_cgroup": null,
+      "own_step_cgroup": null,
+      "workspace_mount": null,
+      "interval_s": 5,
+      "workspace_interval_s": 60,
+      "started_at": "2000-01-01T00:00:00.000Z"
+     }
+    ]
+   },
+   "rows": [
+    {
+     "ts": 946684805000,
+     "phase": "model",
+     "job_id": "1000",
+     "restart": 0,
+     "node": "fake-node0",
+     "node_index": 0,
+     "seq": 0,
+     "dt_s": 5.0,
+     "sample_cost_ms": 0.125,
+     "cpu_busy_cores": 2.0,
+     "cpu_util": 0.5,
+     "mem_available_bytes": 8589934592,
+     "job_mem_peak_bytes": 1073741824,
+     "disk_write_bytes_per_s": 100.75,
+     "nfs_read_bytes_per_s": 1000.25
+    },
+    {
+     "ts": 946684810000,
+     "phase": "model",
+     "job_id": "1000",
+     "restart": 0,
+     "node": "fake-node0",
+     "node_index": 0,
+     "seq": 1,
+     "dt_s": 5.0,
+     "sample_cost_ms": 0.140625,
+     "cpu_busy_cores": 2.25,
+     "cpu_util": 0.515625,
+     "mem_available_bytes": 8588886016,
+     "job_mem_peak_bytes": 1074790400,
+     "disk_write_bytes_per_s": 200.75,
+     "nfs_read_bytes_per_s": 2000.25
+    },
+    {
+     "ts": 946684820000,
+     "phase": "model",
+     "job_id": "1000",
+     "restart": 0,
+     "node": "fake-node0",
+     "node_index": 0,
+     "seq": 3,
+     "dt_s": 5.0,
+     "sample_cost_ms": 0.171875,
+     "cpu_busy_cores": 2.75,
+     "cpu_util": 0.546875,
+     "mem_available_bytes": 8586788864,
+     "job_mem_peak_bytes": 1076887552,
+     "disk_write_bytes_per_s": 400.75,
+     "nfs_read_bytes_per_s": 4000.25
+    }
+   ]
+  },
+  "workspace": {
+   "schema": [
+    [
+     "ts",
+     "timestamp[ms, tz=UTC]",
+     false
+    ],
+    [
+     "phase",
+     "string",
+     false
+    ],
+    [
+     "job_id",
+     "string",
+     false
+    ],
+    [
+     "restart",
+     "int16",
+     false
+    ],
+    [
+     "node",
+     "string",
+     false
+    ],
+    [
+     "apparent_bytes",
+     "int64",
+     true
+    ],
+    [
+     "allocated_bytes",
+     "int64",
+     true
+    ],
+    [
+     "files",
+     "int64",
+     true
+    ],
+    [
+     "dirs",
+     "int64",
+     true
+    ],
+    [
+     "walk_s",
+     "float",
+     true
+    ],
+    [
+     "fs_used_bytes",
+     "int64",
+     true
+    ],
+    [
+     "fs_avail_bytes",
+     "int64",
+     true
+    ]
+   ],
+   "kv": {
+    "hpcmu.telemetry.schema_version": "1",
+    "hpcmu.telemetry.kind": "hpcmu.telemetry.workspace",
+    "hpcmu.tool_version": "9.9.9",
+    "hpcmu.run_id": "run-1",
+    "hpcmu.model": "fake",
+    "hpcmu.headers": [
+     {
+      "kind": "hpcmu.telemetry.header",
+      "schema_version": 1,
+      "tool_version": "9.9.9",
+      "phase": "model",
+      "job_id": "1000",
+      "restart": 0,
+      "node": "fake-node0",
+      "node_index": 0,
+      "nodes": 1,
+      "partition": null,
+      "cpus_on_node": null,
+      "instance_type": null,
+      "cpu_model": null,
+      "ncpus": null,
+      "mem_total_bytes": null,
+      "kernel": null,
+      "job_cgroup": null,
+      "own_step_cgroup": null,
+      "workspace_mount": null,
+      "interval_s": 5,
+      "workspace_interval_s": 60,
+      "started_at": "2000-01-01T00:00:00.000Z"
+     }
+    ]
+   },
+   "rows": []
+  },
+  "summary": {
+   "kind": "hpcmu.telemetry.summary",
+   "schema_version": 1,
+   "run": {
+    "run_id": "run-1",
+    "model": "fake",
+    "tool_version": "9.9.9",
+    "interval_s": 5,
+    "workspace_interval_s": 60
+   },
+   "jobs": [
+    {
+     "phase": "model",
+     "job_id": "1000",
+     "nodes": [
+      {
+       "header": {
+        "kind": "hpcmu.telemetry.header",
+        "schema_version": 1,
+        "tool_version": "9.9.9",
+        "phase": "model",
+        "job_id": "1000",
+        "restart": 0,
+        "node": "fake-node0",
+        "node_index": 0,
+        "nodes": 1,
+        "partition": null,
+        "cpus_on_node": null,
+        "instance_type": null,
+        "cpu_model": null,
+        "ncpus": null,
+        "mem_total_bytes": null,
+        "kernel": null,
+        "job_cgroup": null,
+        "own_step_cgroup": null,
+        "workspace_mount": null,
+        "interval_s": 5,
+        "workspace_interval_s": 60,
+        "started_at": "2000-01-01T00:00:00.000Z"
+       },
+       "first_ts": 946684805000,
+       "last_ts": 946684820000,
+       "samples": 3,
+       "gaps": 0,
+       "max_gap_s": 5.0,
+       "stats": {
+        "sample_cost_ms_mean": 0.14583333333333334,
+        "sample_cost_ms_p95": 0.16875,
+        "sample_cost_ms_p99": 0.17125,
+        "sample_cost_ms_max": 0.171875,
+        "cpu_busy_cores_min": 2.0,
+        "cpu_busy_cores_mean": 2.3333333333333335,
+        "cpu_busy_cores_p95": 2.7,
+        "cpu_busy_cores_max": 2.75,
+        "cpu_util_min": 0.5,
+        "cpu_util_mean": 0.5208333333333334,
+        "cpu_util_p95": 0.54375,
+        "cpu_util_max": 0.546875,
+        "mem_available_bytes_min": 8586788864,
+        "mem_available_bytes_mean": 8588536490.666667,
+        "mem_available_bytes_p95": 8589829734.4,
+        "mem_available_bytes_max": 8589934592,
+        "job_mem_peak_bytes_max": 1076887552,
+        "disk_write_bytes_per_s_mean": 234.08333333333334,
+        "disk_write_bytes_per_s_p95": 380.75,
+        "disk_write_bytes_per_s_max": 400.75,
+        "disk_write_bytes_total": 3511.25,
+        "nfs_read_bytes_per_s_mean": 2333.5833333333335,
+        "nfs_read_bytes_per_s_p95": 3800.25,
+        "nfs_read_bytes_per_s_max": 4000.25,
+        "nfs_read_bytes_total": 35003.75
+       }
+      }
+     ]
+    }
+   ],
+   "workspace": {
+    "walks": 0,
+    "stats": {}
+   },
+   "headline": {
+    "job_ids": {
+     "model": "1000"
+    },
+    "values": {
+     "model.job_mem_peak_bytes_max": 1076887552,
+     "model.mem_available_bytes_min": 8586788864,
+     "model.cpu_busy_cores_mean": 2.3333333333333335,
+     "model.cpu_busy_cores_p95": 2.7,
+     "model.cpu_util_mean": 0.5208333333333334,
+     "model.nfs_read_bytes_total": 35003.75,
+     "model.disk_write_bytes_total": 3511.25
+    }
+   },
+   "warnings": [
+    {
+     "code": "non_monotonic_ts",
+     "phase": "model",
+     "job_id": "1000",
+     "restart": 0,
+     "node_index": 0,
+     "count": 1,
+     "message": "sample ts not after the previous sample"
+    }
+   ]
+  }
+ },
+ "rollup_edges": {
+  "samples": {
+   "schema": [
+    [
+     "ts",
+     "timestamp[ms, tz=UTC]",
+     false
+    ],
+    [
+     "phase",
+     "string",
+     false
+    ],
+    [
+     "job_id",
+     "string",
+     false
+    ],
+    [
+     "restart",
+     "int16",
+     false
+    ],
+    [
+     "node",
+     "string",
+     false
+    ],
+    [
+     "node_index",
+     "int16",
+     false
+    ],
+    [
+     "seq",
+     "int32",
+     false
+    ],
+    [
+     "dt_s",
+     "float",
+     true
+    ],
+    [
+     "sample_cost_ms",
+     "float",
+     true
+    ],
+    [
+     "sampler_maxrss_bytes",
+     "int64",
+     true
+    ],
+    [
+     "cpu_busy_cores",
+     "float",
+     true
+    ],
+    [
+     "cpu_util",
+     "float",
+     true
+    ],
+    [
+     "cpu_user_cores",
+     "float",
+     true
+    ],
+    [
+     "cpu_system_cores",
+     "float",
+     true
+    ],
+    [
+     "cpu_iowait_cores",
+     "float",
+     true
+    ],
+    [
+     "cpu_steal_cores",
+     "float",
+     true
+    ],
+    [
+     "cpu_core_util_min",
+     "float",
+     true
+    ],
+    [
+     "cpu_core_util_p50",
+     "float",
+     true
+    ],
+    [
+     "cpu_core_util_max",
+     "float",
+     true
+    ],
+    [
+     "cpu_active_cores",
+     "int16",
+     true
+    ],
+    [
+     "load1",
+     "float",
+     true
+    ],
+    [
+     "procs_running",
+     "int32",
+     true
+    ],
+    [
+     "procs_blocked",
+     "int32",
+     true
+    ],
+    [
+     "mem_used_bytes",
+     "int64",
+     true
+    ],
+    [
+     "mem_available_bytes",
+     "int64",
+     true
+    ],
+    [
+     "mem_anon_bytes",
+     "int64",
+     true
+    ],
+    [
+     "mem_cached_bytes",
+     "int64",
+     true
+    ],
+    [
+     "mem_shmem_bytes",
+     "int64",
+     true
+    ],
+    [
+     "mem_dirty_bytes",
+     "int64",
+     true
+    ],
+    [
+     "mem_writeback_bytes",
+     "int64",
+     true
+    ],
+    [
+     "mem_slab_bytes",
+     "int64",
+     true
+    ],
+    [
+     "swap_used_bytes",
+     "int64",
+     true
+    ],
+    [
+     "major_faults_per_s",
+     "float",
+     true
+    ],
+    [
+     "oom_kills",
+     "int32",
+     true
+    ],
+    [
+     "job_cpu_cores",
+     "float",
+     true
+    ],
+    [
+     "job_mem_bytes",
+     "int64",
+     true
+    ],
+    [
+     "job_mem_anon_bytes",
+     "int64",
+     true
+    ],
+    [
+     "job_mem_file_bytes",
+     "int64",
+     true
+    ],
+    [
+     "job_mem_shmem_bytes",
+     "int64",
+     true
+    ],
+    [
+     "job_mem_peak_bytes",
+     "int64",
+     true
+    ],
+    [
+     "job_pids",
+     "int32",
+     true
+    ],
+    [
+     "job_oom_kills",
+     "int32",
+     true
+    ],
+    [
+     "psi_cpu_some",
+     "float",
+     true
+    ],
+    [
+     "psi_mem_some",
+     "float",
+     true
+    ],
+    [
+     "psi_mem_full",
+     "float",
+     true
+    ],
+    [
+     "psi_io_some",
+     "float",
+     true
+    ],
+    [
+     "psi_io_full",
+     "float",
+     true
+    ],
+    [
+     "disk_read_bytes_per_s",
+     "double",
+     true
+    ],
+    [
+     "disk_write_bytes_per_s",
+     "double",
+     true
+    ],
+    [
+     "disk_busy_max",
+     "float",
+     true
+    ],
+    [
+     "nfs_read_bytes_per_s",
+     "double",
+     true
+    ],
+    [
+     "nfs_write_bytes_per_s",
+     "double",
+     true
+    ],
+    [
+     "nfs_server_read_bytes_per_s",
+     "double",
+     true
+    ],
+    [
+     "nfs_server_write_bytes_per_s",
+     "double",
+     true
+    ],
+    [
+     "nfs_read_ops_per_s",
+     "float",
+     true
+    ],
+    [
+     "nfs_write_ops_per_s",
+     "float",
+     true
+    ],
+    [
+     "nfs_ops_per_s",
+     "float",
+     true
+    ],
+    [
+     "nfs_read_rtt_ms",
+     "float",
+     true
+    ],
+    [
+     "nfs_write_rtt_ms",
+     "float",
+     true
+    ],
+    [
+     "net_rx_bytes_per_s",
+     "double",
+     true
+    ],
+    [
+     "net_tx_bytes_per_s",
+     "double",
+     true
+    ],
+    [
+     "net_errors_per_s",
+     "float",
+     true
+    ],
+    [
+     "efa_rx_bytes_per_s",
+     "double",
+     true
+    ],
+    [
+     "efa_tx_bytes_per_s",
+     "double",
+     true
+    ]
+   ],
+   "kv": {
+    "hpcmu.telemetry.schema_version": "1",
+    "hpcmu.telemetry.kind": "hpcmu.telemetry.samples",
+    "hpcmu.tool_version": "9.9.9",
+    "hpcmu.run_id": "run-1",
+    "hpcmu.model": "fake",
+    "hpcmu.headers": [
+     {
+      "kind": "hpcmu.telemetry.header",
+      "schema_version": 1,
+      "tool_version": "9.9.9",
+      "phase": "finalize",
+      "job_id": "1001",
+      "restart": 0,
+      "node": "fake-node0",
+      "node_index": 0,
+      "nodes": 1,
+      "partition": null,
+      "cpus_on_node": null,
+      "instance_type": null,
+      "cpu_model": null,
+      "ncpus": null,
+      "mem_total_bytes": null,
+      "kernel": null,
+      "job_cgroup": null,
+      "own_step_cgroup": null,
+      "workspace_mount": null,
+      "interval_s": 5,
+      "workspace_interval_s": 60,
+      "started_at": "2000-01-01T00:00:00.000Z"
+     },
+     {
+      "kind": "hpcmu.telemetry.header",
+      "schema_version": 1,
+      "tool_version": "9.9.9",
+      "phase": "model",
+      "job_id": "1000",
+      "restart": 0,
+      "node": "fake-node0",
+      "node_index": 0,
+      "nodes": 1,
+      "partition": null,
+      "cpus_on_node": null,
+      "instance_type": null,
+      "cpu_model": null,
+      "ncpus": null,
+      "mem_total_bytes": null,
+      "kernel": null,
+      "job_cgroup": null,
+      "own_step_cgroup": null,
+      "workspace_mount": null,
+      "interval_s": 5,
+      "workspace_interval_s": 60,
+      "started_at": "2000-01-01T00:00:00.000Z"
+     }
+    ]
+   },
+   "rows": [
+    {
+     "ts": 946684805000,
+     "phase": "finalize",
+     "job_id": "1001",
+     "restart": 0,
+     "node": "fake-node0",
+     "node_index": 0,
+     "seq": 0,
+     "dt_s": 2.5,
+     "sample_cost_ms": 0.25,
+     "cpu_busy_cores": 1.5,
+     "cpu_util": 0.625,
+     "mem_available_bytes": 8581545984,
+     "job_mem_peak_bytes": 1082130432,
+     "disk_write_bytes_per_s": 900.75,
+     "nfs_read_bytes_per_s": 80.0
+    },
+    {
+     "ts": 946684805000,
+     "phase": "model",
+     "job_id": "1000",
+     "restart": 0,
+     "node": "fake-node0",
+     "node_index": 0,
+     "seq": 0,
+     "dt_s": 5.0,
+     "sample_cost_ms": 0.125,
+     "cpu_busy_cores": 2.0,
+     "cpu_util": 0.5,
+     "mem_available_bytes": 8589934592,
+     "job_mem_peak_bytes": 1073741824,
+     "disk_write_bytes_per_s": 10.0,
+     "nfs_read_bytes_per_s": 100.0
+    },
+    {
+     "ts": 946684810000,
+     "phase": "model",
+     "job_id": "1000",
+     "restart": 0,
+     "node": "fake-node0",
+     "node_index": 0,
+     "seq": 1,
+     "dt_s": 5.0,
+     "sample_cost_ms": 0.140625,
+     "cpu_busy_cores": 2.25,
+     "cpu_util": 0.515625,
+     "mem_available_bytes": 8588886016,
+     "job_mem_peak_bytes": 1074790400,
+     "disk_write_bytes_per_s": 20.0
+    },
+    {
+     "ts": 946684820000,
+     "phase": "model",
+     "job_id": "1000",
+     "restart": 0,
+     "node": "fake-node0",
+     "node_index": 0,
+     "seq": 2,
+     "dt_s": 10.0,
+     "sample_cost_ms": 0.15625,
+     "cpu_busy_cores": 2.5,
+     "cpu_util": 0.53125,
+     "mem_available_bytes": 8587837440,
+     "job_mem_peak_bytes": 1075838976,
+     "disk_write_bytes_per_s": 30.0,
+     "nfs_read_bytes_per_s": 200.0
+    },
+    {
+     "ts": 946684825000,
+     "phase": "model",
+     "job_id": "1000",
+     "restart": 0,
+     "node": "fake-node0",
+     "node_index": 0,
+     "seq": 3,
+     "dt_s": 5.0,
+     "sample_cost_ms": 0.171875,
+     "cpu_busy_cores": 2.75,
+     "cpu_util": 0.546875,
+     "mem_available_bytes": 8586788864,
+     "job_mem_peak_bytes": 1076887552,
+     "disk_write_bytes_per_s": 40.0,
+     "nfs_read_bytes_per_s": 300.0
+    },
+    {
+     "ts": 946684825500,
+     "phase": "model",
+     "job_id": "1000",
+     "restart": 0,
+     "node": "fake-node0",
+     "node_index": 0,
+     "seq": 4,
+     "dt_s": 0.5,
+     "sample_cost_ms": 0.1875,
+     "cpu_busy_cores": 3.0,
+     "cpu_util": 0.5625,
+     "mem_available_bytes": 8585740288,
+     "job_mem_peak_bytes": 1077936128,
+     "disk_write_bytes_per_s": 1000.0,
+     "nfs_read_bytes_per_s": 400.0
+    }
+   ]
+  },
+  "workspace": {
+   "schema": [
+    [
+     "ts",
+     "timestamp[ms, tz=UTC]",
+     false
+    ],
+    [
+     "phase",
+     "string",
+     false
+    ],
+    [
+     "job_id",
+     "string",
+     false
+    ],
+    [
+     "restart",
+     "int16",
+     false
+    ],
+    [
+     "node",
+     "string",
+     false
+    ],
+    [
+     "apparent_bytes",
+     "int64",
+     true
+    ],
+    [
+     "allocated_bytes",
+     "int64",
+     true
+    ],
+    [
+     "files",
+     "int64",
+     true
+    ],
+    [
+     "dirs",
+     "int64",
+     true
+    ],
+    [
+     "walk_s",
+     "float",
+     true
+    ],
+    [
+     "fs_used_bytes",
+     "int64",
+     true
+    ],
+    [
+     "fs_avail_bytes",
+     "int64",
+     true
+    ]
+   ],
+   "kv": {
+    "hpcmu.telemetry.schema_version": "1",
+    "hpcmu.telemetry.kind": "hpcmu.telemetry.workspace",
+    "hpcmu.tool_version": "9.9.9",
+    "hpcmu.run_id": "run-1",
+    "hpcmu.model": "fake",
+    "hpcmu.headers": [
+     {
+      "kind": "hpcmu.telemetry.header",
+      "schema_version": 1,
+      "tool_version": "9.9.9",
+      "phase": "finalize",
+      "job_id": "1001",
+      "restart": 0,
+      "node": "fake-node0",
+      "node_index": 0,
+      "nodes": 1,
+      "partition": null,
+      "cpus_on_node": null,
+      "instance_type": null,
+      "cpu_model": null,
+      "ncpus": null,
+      "mem_total_bytes": null,
+      "kernel": null,
+      "job_cgroup": null,
+      "own_step_cgroup": null,
+      "workspace_mount": null,
+      "interval_s": 5,
+      "workspace_interval_s": 60,
+      "started_at": "2000-01-01T00:00:00.000Z"
+     },
+     {
+      "kind": "hpcmu.telemetry.header",
+      "schema_version": 1,
+      "tool_version": "9.9.9",
+      "phase": "model",
+      "job_id": "1000",
+      "restart": 0,
+      "node": "fake-node0",
+      "node_index": 0,
+      "nodes": 1,
+      "partition": null,
+      "cpus_on_node": null,
+      "instance_type": null,
+      "cpu_model": null,
+      "ncpus": null,
+      "mem_total_bytes": null,
+      "kernel": null,
+      "job_cgroup": null,
+      "own_step_cgroup": null,
+      "workspace_mount": null,
+      "interval_s": 5,
+      "workspace_interval_s": 60,
+      "started_at": "2000-01-01T00:00:00.000Z"
+     }
+    ]
+   },
+   "rows": []
+  },
+  "summary": {
+   "kind": "hpcmu.telemetry.summary",
+   "schema_version": 1,
+   "run": {
+    "run_id": "run-1",
+    "model": "fake",
+    "tool_version": "9.9.9",
+    "interval_s": 5,
+    "workspace_interval_s": 60
+   },
+   "jobs": [
+    {
+     "phase": "model",
+     "job_id": "1000",
+     "nodes": [
+      {
+       "header": {
+        "kind": "hpcmu.telemetry.header",
+        "schema_version": 1,
+        "tool_version": "9.9.9",
+        "phase": "model",
+        "job_id": "1000",
+        "restart": 0,
+        "node": "fake-node0",
+        "node_index": 0,
+        "nodes": 1,
+        "partition": null,
+        "cpus_on_node": null,
+        "instance_type": null,
+        "cpu_model": null,
+        "ncpus": null,
+        "mem_total_bytes": null,
+        "kernel": null,
+        "job_cgroup": null,
+        "own_step_cgroup": null,
+        "workspace_mount": null,
+        "interval_s": 5,
+        "workspace_interval_s": 60,
+        "started_at": "2000-01-01T00:00:00.000Z"
+       },
+       "first_ts": 946684805000,
+       "last_ts": 946684825500,
+       "samples": 5,
+       "gaps": 1,
+       "max_gap_s": 10.0,
+       "stats": {
+        "sample_cost_ms_mean": 0.15073529411764705,
+        "sample_cost_ms_p95": 0.184375,
+        "sample_cost_ms_p99": 0.186875,
+        "sample_cost_ms_max": 0.1875,
+        "cpu_busy_cores_min": 2.0,
+        "cpu_busy_cores_mean": 2.411764705882353,
+        "cpu_busy_cores_p95": 2.95,
+        "cpu_busy_cores_max": 3.0,
+        "cpu_util_min": 0.5,
+        "cpu_util_mean": 0.5257352941176471,
+        "cpu_util_p95": 0.559375,
+        "cpu_util_max": 0.5625,
+        "mem_available_bytes_min": 8585740288,
+        "mem_available_bytes_mean": 8588207525.6470585,
+        "mem_available_bytes_p95": 8589724876.8,
+        "mem_available_bytes_max": 8589934592,
+        "job_mem_peak_bytes_max": 1077936128,
+        "disk_write_bytes_per_s_mean": 45.09803921568628,
+        "disk_write_bytes_per_s_p95": 807.9999999999998,
+        "disk_write_bytes_per_s_max": 1000.0,
+        "disk_write_bytes_total": 1150.0,
+        "nfs_read_bytes_per_s_mean": 204.8780487804878,
+        "nfs_read_bytes_per_s_p95": 385.0,
+        "nfs_read_bytes_per_s_max": 400.0,
+        "nfs_read_bytes_total": 4200.0
+       }
+      }
+     ]
+    },
+    {
+     "phase": "finalize",
+     "job_id": "1001",
+     "nodes": [
+      {
+       "header": {
+        "kind": "hpcmu.telemetry.header",
+        "schema_version": 1,
+        "tool_version": "9.9.9",
+        "phase": "finalize",
+        "job_id": "1001",
+        "restart": 0,
+        "node": "fake-node0",
+        "node_index": 0,
+        "nodes": 1,
+        "partition": null,
+        "cpus_on_node": null,
+        "instance_type": null,
+        "cpu_model": null,
+        "ncpus": null,
+        "mem_total_bytes": null,
+        "kernel": null,
+        "job_cgroup": null,
+        "own_step_cgroup": null,
+        "workspace_mount": null,
+        "interval_s": 5,
+        "workspace_interval_s": 60,
+        "started_at": "2000-01-01T00:00:00.000Z"
+       },
+       "first_ts": 946684805000,
+       "last_ts": 946684805000,
+       "samples": 1,
+       "gaps": 0,
+       "max_gap_s": 2.5,
+       "stats": {
+        "sample_cost_ms_mean": 0.25,
+        "sample_cost_ms_p95": 0.25,
+        "sample_cost_ms_p99": 0.25,
+        "sample_cost_ms_max": 0.25,
+        "cpu_busy_cores_min": 1.5,
+        "cpu_busy_cores_mean": 1.5,
+        "cpu_busy_cores_p95": 1.5,
+        "cpu_busy_cores_max": 1.5,
+        "cpu_util_min": 0.625,
+        "cpu_util_mean": 0.625,
+        "cpu_util_p95": 0.625,
+        "cpu_util_max": 0.625,
+        "mem_available_bytes_min": 8581545984,
+        "mem_available_bytes_mean": 8581545984.0,
+        "mem_available_bytes_p95": 8581545984.0,
+        "mem_available_bytes_max": 8581545984,
+        "job_mem_peak_bytes_max": 1082130432,
+        "disk_write_bytes_per_s_mean": 900.75,
+        "disk_write_bytes_per_s_p95": 900.75,
+        "disk_write_bytes_per_s_max": 900.75,
+        "disk_write_bytes_total": 2251.875,
+        "nfs_read_bytes_per_s_mean": 80.0,
+        "nfs_read_bytes_per_s_p95": 80.0,
+        "nfs_read_bytes_per_s_max": 80.0,
+        "nfs_read_bytes_total": 200.0
+       }
+      }
+     ]
+    }
+   ],
+   "workspace": {
+    "walks": 0,
+    "stats": {}
+   },
+   "headline": {
+    "job_ids": {
+     "model": "1000",
+     "finalize": "1001"
+    },
+    "values": {
+     "model.job_mem_peak_bytes_max": 1077936128,
+     "model.mem_available_bytes_min": 8585740288,
+     "model.cpu_busy_cores_mean": 2.411764705882353,
+     "model.cpu_busy_cores_p95": 2.95,
+     "model.cpu_util_mean": 0.5257352941176471,
+     "model.nfs_read_bytes_total": 4200.0,
+     "model.disk_write_bytes_total": 1150.0,
+     "finalize.job_mem_peak_bytes_max": 1082130432,
+     "finalize.mem_available_bytes_min": 8581545984,
+     "finalize.cpu_busy_cores_mean": 1.5,
+     "finalize.cpu_busy_cores_p95": 1.5,
+     "finalize.cpu_util_mean": 0.625,
+     "finalize.nfs_read_bytes_total": 200.0,
+     "finalize.disk_write_bytes_total": 2251.875
+    }
+   },
+   "warnings": []
+  }
+ }
+}

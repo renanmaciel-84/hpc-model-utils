@@ -1,6 +1,6 @@
 [project]
 name = "hpc-model-utils"
-version = "2.2.3"
+version = "2.3.0"
 description = "CLI tool for running energy planning models (NEWAVE, DECOMP, cobre) in HPC clusters with SLURM and AWS S3 integration"
 readme = "README.md"
 license = "MIT"
@@ -31,6 +31,7 @@ dependencies = [
   "click>=8.4",
   "idecomp>=1.11.0",
   "inewave>=1.14.1",
+  "pyarrow>=22",
 ]
 
 [project.urls]

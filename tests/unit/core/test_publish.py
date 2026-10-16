@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import json
 import logging
+import sys
 from pathlib import Path
 
 import pytest
@@ -20,6 +21,7 @@ from hpc_model_utils.core.errors import (
     StorageError,
     UsageError,
 )
+from hpc_model_utils.core.lifecycle import publish as publish_module
 from hpc_model_utils.core.lifecycle.publish import (
     publish,
     validate_artifacts_prefix,
@@ -36,13 +38,22 @@ from hpc_model_utils.core.state import (
     ToolInfo,
     write_finalize,
 )
+from hpc_model_utils.core.telemetry import (
+    EXPORT_TIMEOUT_S,
+    Exported,
+    ExportFailed,
+    ExportResult,
+    NothingToExport,
+)
 from hpc_model_utils.core.workspace import Phase, Workspace
 from hpc_model_utils.infra.s3 import S3Uri
+from hpc_model_utils.infra.telemetry.schema import EXPORT_FILES
 from hpc_model_utils.platform.encoding import ANNOTATION_CAP
 from hpc_model_utils.platform.modelops import Reporter
 from tests.support.fake_plugin import FakePlugin
 from tests.support.hooks import Hook, parse_hooks
 from tests.support.object_store import RecordingObjectStore
+from tests.support.telemetry_staging import header, sample, write_staging
 
 _BUCKET = "test-bucket"
 _HASH = "a" * 64
@@ -927,3 +938,377 @@ def test_publish_missing_state_raises_state_format_error(
 
     assert store.ops == []
     assert channel.lines == []
+
+
+# ---------------------------------------------------------------------------
+# ADR-083/ADR-077/ADR-084 (ticket-048): the telemetry export inside publish
+# ---------------------------------------------------------------------------
+
+_HEADLINE = (("telemetry.model.cpu_util_mean", "0.5000"),)
+_TELEMETRY_KEYS = [f"saidas/telemetry/{name}" for name in EXPORT_FILES]
+
+
+class _SequencedStore(RecordingObjectStore):
+    """Appends each ``exists_any`` and ``upload`` to a list shared with the
+    channel and the export spy, so a test can assert their relative order."""
+
+    def __init__(self, events: list[tuple[str, str]]) -> None:
+        super().__init__()
+        self._events = events
+
+    def exists_any(self, prefix: S3Uri) -> bool:
+        self._events.append(("exists_any", str(prefix)))
+        return super().exists_any(prefix)
+
+    def upload(self, src: Path, uri: S3Uri) -> None:
+        self._events.append(("upload", str(uri)))
+        super().upload(src, uri)
+
+
+class _SequencedChannel(_ListChannel):
+    def __init__(self, events: list[tuple[str, str]]) -> None:
+        super().__init__()
+        self._events = events
+
+    def write_line(self, line: str) -> None:
+        self._events.append(("hook", line))
+        super().write_line(line)
+
+
+class _ExportSpy:
+    def __init__(
+        self, result: ExportResult, events: list[tuple[str, str]]
+    ) -> None:
+        self.states: list[RunState] = []
+        self._result = result
+        self._events = events
+
+    def __call__(
+        self,
+        ws: Workspace,
+        state: RunState,
+        *,
+        interpreter: str = sys.executable,
+        timeout_s: float = EXPORT_TIMEOUT_S,
+    ) -> ExportResult:
+        self._events.append(("export", ""))
+        self.states.append(state)
+        return self._result
+
+
+def _fake_export(
+    monkeypatch: pytest.MonkeyPatch,
+    result: ExportResult,
+    events: list[tuple[str, str]] | None = None,
+) -> _ExportSpy:
+    spy = _ExportSpy(result, [] if events is None else events)
+    monkeypatch.setattr(publish_module, "export_telemetry", spy)
+    return spy
+
+
+def _exported(
+    ws: Workspace, headline: tuple[tuple[str, str], ...] = _HEADLINE
+) -> Exported:
+    ws.telemetry_outputs_dir.mkdir(parents=True, exist_ok=True)
+    samples, workspace, summary = (
+        ws.telemetry_outputs_dir / name for name in EXPORT_FILES
+    )
+    samples.write_bytes(b"samples-bytes")
+    workspace.write_bytes(b"workspace-parquet-bytes")
+    summary.write_bytes(b'{"kind": "summary"}')
+    return Exported((samples, workspace, summary), headline)
+
+
+def _jobs_state(ws: Workspace) -> RunState:
+    model_log = _write_log(ws, Phase.MODEL, "1000")
+    finalize_log = _write_log(ws, Phase.FINALIZE, "1001")
+    return _state(
+        ws,
+        diagnosis=_success_diagnosis(),
+        jobs=(
+            JobRecord(Phase.MODEL, "1000", utc_now_iso(), model_log),
+            JobRecord(Phase.FINALIZE, "1001", utc_now_iso(), finalize_log),
+        ),
+    )
+
+
+def _publish_hooks(ws: Workspace, store: RecordingObjectStore) -> list[Hook]:
+    channel = _ListChannel()
+    reporter = Reporter(channel, enabled=True)
+    publish(ws, FakePlugin(), store, reporter, StateStore(ws), _uri())
+    return _hooks(channel)
+
+
+def _timeline(events: list[tuple[str, str]]) -> list[str | Hook]:
+    base = _base()
+    timeline: list[str | Hook] = []
+    for kind, value in events:
+        if kind == "upload":
+            timeline.append(value[len(base) :])
+        elif kind == "hook":
+            timeline.extend(parse_hooks(value))
+    return timeline
+
+
+def _metadata_pairs(hooks: list[Hook]) -> list[tuple[str, ...]]:
+    return [hook.args for hook in hooks if hook.method == "SetMetadata"]
+
+
+def test_publish_telemetry_position_uploads_after_sintese_before_status(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    ws = _ws(tmp_path)
+    state = _jobs_state(ws)
+    _write_finalize(ws, state.run_id, _full_realized(ws))
+    _write_sintese(ws, "a.parquet")
+    _write_sintese(ws, "b.parquet")
+    exported = _exported(ws)
+    _fake_export(monkeypatch, exported)
+    store = RecordingObjectStore()
+
+    _publish_hooks(ws, store)
+
+    assert _upload_keys(store) == [
+        "entradas/eco_deck.zip",
+        "entradas/deck_processado.zip",
+        "saidas/cortes.zip",
+        "saidas/pmo.dat",
+        "saidas/logs/model-1000.out",
+        "saidas/logs/finalize-1001.out",
+        "sintese/a.parquet",
+        "sintese/b.parquet",
+        "saidas/telemetry/samples.parquet",
+        "saidas/telemetry/workspace.parquet",
+        "saidas/telemetry/summary.json",
+        "saidas/status.modelops",
+        "saidas/run.json",
+        "saidas/metadata.modelops",
+    ]
+    run_json = json.loads(store.get_bytes(_s3("saidas/run.json")))
+    sizes = {entry["path"]: entry["bytes"] for entry in run_json["artifacts"]}
+    for key, path in zip(_TELEMETRY_KEYS, exported.files, strict=True):
+        assert sizes[key] == path.stat().st_size
+        assert store.get_bytes(_s3(key)) == path.read_bytes()
+
+
+def test_publish_telemetry_hooks_follow_the_commit_marker_and_precede_terminal(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    ws = _ws(tmp_path)
+    state = _jobs_state(ws)
+    _write_finalize(ws, state.run_id, None)
+    events: list[tuple[str, str]] = []
+    _fake_export(monkeypatch, _exported(ws), events)
+    store = _SequencedStore(events)
+    reporter = Reporter(_SequencedChannel(events), enabled=True)
+
+    publish(ws, FakePlugin(), store, reporter, StateStore(ws), _uri())
+
+    assert _timeline(events)[-5:] == [
+        "saidas/metadata.modelops",
+        Hook("SetMetadata", ("telemetry.model.cpu_util_mean", "0.5000")),
+        Hook("SetExecutionArtifactsPath", (_uri(),)),
+        Hook("SetSuccess", ()),
+        Hook("SetAnnotation", (_success_diagnosis().annotation(),)),
+    ]
+
+
+def test_publish_telemetry_hooks_emit_exactly_the_headline_pairs_in_order(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    ws = _ws(tmp_path)
+    state = _jobs_state(ws)
+    _write_finalize(ws, state.run_id, None)
+    headline = (
+        ("telemetry.model.job_mem_peak_bytes_max", "1234"),
+        ("telemetry.model.cpu_util_mean", "0.5000"),
+    )
+    _fake_export(monkeypatch, _exported(ws, headline))
+
+    hooks = _publish_hooks(ws, RecordingObjectStore())
+
+    assert _metadata_pairs(hooks) == [tuple(pair) for pair in headline]
+
+
+@pytest.mark.parametrize(
+    "bad_uri",
+    ["not-an-s3-uri", f"s3://{_BUCKET}/artifacts/short-hash/"],
+    ids=["malformed", "bad-hash"],
+)
+def test_publish_telemetry_call_bad_uri_raises_usage_error_without_export(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, bad_uri: str
+) -> None:
+    ws = _ws(tmp_path)
+    _state(ws, diagnosis=_success_diagnosis())
+    spy = _fake_export(monkeypatch, NothingToExport())
+    reporter = Reporter(_ListChannel(), enabled=True)
+
+    with pytest.raises(UsageError, match="invalid artifacts"):
+        publish(
+            ws,
+            FakePlugin(),
+            RecordingObjectStore(),
+            reporter,
+            StateStore(ws),
+            bad_uri,
+        )
+
+    assert spy.states == []
+
+
+def test_publish_telemetry_call_missing_state_raises_without_export(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    ws = _ws(tmp_path)
+    spy = _fake_export(monkeypatch, NothingToExport())
+    reporter = Reporter(_ListChannel(), enabled=True)
+
+    with pytest.raises(StateFormatError, match="state.json"):
+        publish(
+            ws,
+            FakePlugin(),
+            RecordingObjectStore(),
+            reporter,
+            StateStore(ws),
+            _uri(),
+        )
+
+    assert spy.states == []
+
+
+def test_publish_telemetry_call_no_diagnosis_receives_the_fallback_state(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    ws = _ws(tmp_path)
+    _state(ws, diagnosis=None)
+    spy = _fake_export(monkeypatch, NothingToExport())
+
+    _publish_hooks(ws, RecordingObjectStore())
+
+    [seen] = spy.states
+    assert seen.diagnosis is not None
+    assert seen.diagnosis.rule_id == "core.no_diagnosis"
+
+
+def test_publish_telemetry_call_precedes_the_first_store_operation(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    ws = _ws(tmp_path)
+    _state(ws, diagnosis=_success_diagnosis())
+    events: list[tuple[str, str]] = []
+    _fake_export(monkeypatch, NothingToExport(), events)
+    store = _SequencedStore(events)
+    reporter = Reporter(_SequencedChannel(events), enabled=True)
+
+    publish(ws, FakePlugin(), store, reporter, StateStore(ws), _uri())
+
+    kinds = [kind for kind, _ in events]
+    assert kinds.count("export") == 1
+    assert kinds.index("export") < kinds.index("exists_any")
+
+
+def test_publish_telemetry_call_reused_prefix_still_exports_once(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    ws = _ws(tmp_path)
+    _state(ws, diagnosis=_success_diagnosis())
+    spy = _fake_export(monkeypatch, NothingToExport())
+    store = RecordingObjectStore()
+    _seed_reused_prefix(store)
+
+    _publish_hooks(ws, store)
+
+    assert len(spy.states) == 1
+
+
+def test_publish_telemetry_skip_export_failed_equals_nothing_to_export(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    ws = _ws(tmp_path)
+    state = _jobs_state(ws)
+    _write_finalize(ws, state.run_id, _full_realized(ws))
+    _write_sintese(ws)
+    outcomes: list[tuple[list[str], bytes, bytes, list[Hook]]] = []
+    for result in (NothingToExport(), ExportFailed("x")):
+        _fake_export(monkeypatch, result)
+        store = RecordingObjectStore()
+        hooks = _publish_hooks(ws, store)
+        outcomes.append(
+            (
+                _upload_keys(store),
+                store.get_bytes(_s3("saidas/status.modelops")),
+                store.get_bytes(_s3("saidas/metadata.modelops")),
+                hooks,
+            )
+        )
+
+    baseline, failed = outcomes
+    assert failed == baseline
+    keys, _, _, hooks = failed
+    assert not [key for key in keys if key.startswith("saidas/telemetry/")]
+    assert _metadata_pairs(hooks) == []
+
+
+def test_publish_telemetry_skip_reused_prefix_keeps_old_objects_and_deletes_none(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    ws = _ws(tmp_path)
+    state = _state(ws, diagnosis=_success_diagnosis())
+    _write_finalize(ws, state.run_id, None)
+    _fake_export(monkeypatch, NothingToExport())
+    store = RecordingObjectStore()
+    store.seed(_s3("saidas/telemetry/summary.json"), b"old-summary")
+    _seed_reused_prefix(store)
+
+    _publish_hooks(ws, store)
+
+    assert "delete" not in [op for op, _ in store.ops]
+    assert not [
+        key
+        for key in _upload_keys(store)
+        if key.startswith("saidas/telemetry/")
+    ]
+    assert (
+        store.get_bytes(_s3("saidas/telemetry/summary.json")) == b"old-summary"
+    )
+    run_json = json.loads(store.get_bytes(_s3("saidas/run.json")))
+    assert not [
+        entry
+        for entry in run_json["artifacts"]
+        if entry["path"].startswith("saidas/telemetry/")
+    ]
+
+
+def test_publish_telemetry_skip_real_runner_finalize_only_job_exports_finalize_scope(
+    tmp_path: Path,
+) -> None:
+    ws = _ws(tmp_path)
+    finalize_log = _write_log(ws, Phase.FINALIZE, "1001")
+    state = _state(
+        ws,
+        diagnosis=_success_diagnosis(),
+        jobs=(JobRecord(Phase.FINALIZE, "1001", utc_now_iso(), finalize_log),),
+    )
+    _write_finalize(ws, state.run_id, None)
+    head = header("finalize", "1001")
+    write_staging(
+        ws.telemetry_dir,
+        head,
+        [sample(head, seq, cpu_busy_cores=float(seq + 1)) for seq in range(3)],
+    )
+    store = RecordingObjectStore()
+
+    hooks = _publish_hooks(ws, store)
+
+    assert [
+        key
+        for key in _upload_keys(store)
+        if key.startswith("saidas/telemetry/")
+    ] == _TELEMETRY_KEYS
+    pairs = _metadata_pairs(hooks)
+    assert ("telemetry.finalize.cpu_busy_cores_mean", "2.00") in pairs
+    assert not [
+        key
+        for key, *_ in pairs
+        if key.startswith(("telemetry.model.", "telemetry.workspace."))
+    ]

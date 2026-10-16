@@ -8,7 +8,9 @@
 # A cache hit (<root>/<name>/<sha40>/.ready) runs neither git nor uv and
 # writes nothing (ADR-030). A miss verifies the tag against the pinned SHA,
 # clones it, syncs the locked environment on the shared exact-patch
-# interpreter, and marks the directory ready and read-only.
+# interpreter, and marks the directory ready and read-only. The
+# hpc-model-utils install also imports pyarrow.parquet through its own
+# interpreter (ADR-091).
 #
 # stdout carries only "HPCMU_TOOL <name> <dir>" lines. A failure is exactly
 # one stderr line (ADR-050); git, uv and smoke-run output goes to the log
@@ -308,6 +310,12 @@ install_tool() {
   note "== smoke run: $t_cmd --help"
   "$t_dir/.venv/bin/$t_cmd" --help </dev/null >>"$log" 2>&1 ||
     fail_tool "smoke run '$t_cmd --help' failed"
+
+  if [[ $t_name == hpc-model-utils ]]; then
+    note "== smoke import: pyarrow.parquet"
+    "$t_dir/.venv/bin/python" -I -c 'import pyarrow.parquet' </dev/null >>"$log" 2>&1 ||
+      fail_tool "smoke import 'pyarrow.parquet' failed"
+  fi
 
   stamp=$(date -u +%Y-%m-%dT%H:%M:%SZ </dev/null 2>>"$log") ||
     fail_tool "cannot read the clock"

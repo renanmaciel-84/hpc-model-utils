@@ -138,6 +138,8 @@ def _fabricate_held_job(fake: FakeSlurm, ws: Workspace, script: Path) -> str:
             "runner_pid": None,
             "configuring_seconds": 0.0,
             "steps": [],
+            "step_tasks": [],
+            "restart_count": 0,
         },
     )
     return str(job_id)

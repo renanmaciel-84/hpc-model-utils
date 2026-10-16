@@ -5,6 +5,7 @@ and the ``object_store`` factory.
 
 from __future__ import annotations
 
+import dataclasses
 import sys
 from dataclasses import dataclass
 from pathlib import Path
@@ -17,9 +18,15 @@ from hpc_model_utils.cli import workflow
 from hpc_model_utils.cli.params import ModelArg
 from hpc_model_utils.cli.root import AppContext, HpcmuCommand, cli
 from hpc_model_utils.core.errors import UsageError
-from hpc_model_utils.core.launch import Resources, Toolchain
+from hpc_model_utils.core.launch import (
+    TELEMETRY_OFF,
+    Resources,
+    TelemetryConfig,
+    Toolchain,
+)
 from hpc_model_utils.core.lifecycle.run import SubmitRequest
 from hpc_model_utils.core.settings import EngineSettings
+from hpc_model_utils.core.state import ToolInfo, current_tool
 from hpc_model_utils.core.workspace import Workspace
 from hpc_model_utils.infra.s3 import Boto3ObjectStore, ObjectStore
 from hpc_model_utils.models.newave import NewavePlugin
@@ -309,6 +316,85 @@ def test_run_command_max_cores_per_node_zero_exits_2() -> None:
     )
 
     assert result.exit_code == 2
+
+
+# ---------------------------------------------------------------------------
+# telemetry launch config (ticket-033, ADR-082).
+# ---------------------------------------------------------------------------
+
+
+def test_telemetry_config_default_settings_maps_all_four_fields() -> None:
+    config = workflow.telemetry_config(EngineSettings())
+
+    assert config == TelemetryConfig(True, 5, 60, current_tool().version)
+
+
+def test_telemetry_config_env_off_maps_all_four_fields() -> None:
+    settings = EngineSettings.from_env(
+        {
+            "HPCMU_TELEMETRY": "off",
+            "HPCMU_TELEMETRY_INTERVAL": "30",
+            "HPCMU_TELEMETRY_WORKSPACE_INTERVAL": "3600",
+        }
+    )
+
+    config = workflow.telemetry_config(settings)
+
+    assert config == TelemetryConfig(False, 30, 3600, current_tool().version)
+
+
+def test_run_command_telemetry_settings_record_config_on_submit_request(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    recorder = _Recorder()
+    monkeypatch.setattr(workflow, "run", recorder)
+    monkeypatch.setattr(
+        workflow, "current_tool", lambda: ToolInfo("hpc-model-utils", "9.9.9")
+    )
+    app_ctx = AppContext(
+        reporter=Reporter(_ListChannel(), enabled=True),
+        channels=None,
+        settings=EngineSettings(
+            cli_bin=Path("/c/bin/hpc-model-utils"),
+            telemetry=False,
+            telemetry_interval=12,
+            telemetry_workspace_interval=120,
+        ),
+    )
+
+    result = CliRunner().invoke(cli, ["run", "newave", "q-a", "4"], obj=app_ctx)
+
+    assert result.exit_code == 0, result.output
+    req = recorder.calls[0].args[5]
+    assert isinstance(req, SubmitRequest)
+    assert req.telemetry == TelemetryConfig(False, 12, 120, "9.9.9")
+
+
+def test_submit_request_telemetry_omitted_defaults_to_telemetry_off() -> None:
+    req = SubmitRequest(
+        Resources("q", 4, None, None),
+        Toolchain(Path("/m"), Path("/s"), Path("/c/bin/hpc-model-utils")),
+        False,
+        None,
+    )
+
+    assert req.telemetry is TELEMETRY_OFF
+
+
+def test_telemetry_off_matches_engine_settings_cadence_defaults() -> None:
+    defaults = EngineSettings()
+
+    assert TELEMETRY_OFF == TelemetryConfig(
+        False,
+        defaults.telemetry_interval,
+        defaults.telemetry_workspace_interval,
+        "",
+    )
+
+
+def test_telemetry_config_assignment_raises_frozen_instance_error() -> None:
+    with pytest.raises(dataclasses.FrozenInstanceError):
+        setattr(TELEMETRY_OFF, "interval", 6)
 
 
 # ---------------------------------------------------------------------------

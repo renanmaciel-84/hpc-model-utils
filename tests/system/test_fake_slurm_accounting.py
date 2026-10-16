@@ -234,6 +234,37 @@ def test_scontrol_show_job_reports_completed_before_purge_and_invalid_after(
     assert "Invalid job id" in after.stderr
 
 
+def test_scontrol_requeue_finished_job_reruns_with_restart_count(
+    fake_slurm: FakeSlurm, tmp_path: Path
+) -> None:
+    job_id = _submit(tmp_path, "job.sh", 'echo "restart=$SLURM_RESTART_COUNT"')
+    fake_slurm.wait_idle()
+
+    result = scontrol("requeue", str(job_id))
+    fake_slurm.wait_idle()
+
+    assert result.returncode == 0
+    output = (tmp_path / f"slurm-{job_id}.out").read_text()
+    assert output.splitlines() == ["restart=0", "restart=1"]
+    assert fake_slurm.job(job_id)["restart_count"] == 1
+
+
+def test_scontrol_requeue_running_job_is_refused(
+    fake_slurm: FakeSlurm, tmp_path: Path
+) -> None:
+    job_id = _submit(tmp_path, "job.sh", "sleep 5")
+    wait_for_state(fake_slurm, job_id, "RUNNING")
+
+    result = scontrol("requeue", str(job_id))
+
+    assert result.returncode == 1
+    assert (
+        result.stderr.strip()
+        == "scontrol: error: fake-slurm requeue needs a finished job"
+    )
+    assert fake_slurm.job(job_id)["restart_count"] == 0
+
+
 def test_squeue_after_purge_single_id_exits_1_invalid_job_id(
     fake_slurm: FakeSlurm, tmp_path: Path
 ) -> None:
