@@ -6,7 +6,26 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/).
 
 ## The 2.x series
 
-2.0.0 is the drop-in v2 engine, with the status-semantics change described in [`docs/notices/v2-status-semantics.md`](docs/notices/v2-status-semantics.md). 2.0.1 and 2.0.2 carry the versioned workflow definitions and the relay fixes that the NEWAVE and DECOMP workflows run. 2.1.0 adds cobre. 2.2.0 tightens the DECOMP FC stage check ([`docs/notices/v2-fc-stage-mismatch.md`](docs/notices/v2-fc-stage-mismatch.md)), cleans the logs and adds a cobre results dashboard. 2.2.1 fixes the reporting of S3 upload and read failures and the cancellation of a terminated run. 2.2.2 fixes the Upload NEWAVE ingest of large offline runs. 2.2.3 supports cobre v0.18.0. 2.3.0 adds job telemetry.
+2.0.0 is the drop-in v2 engine, with the status-semantics change described in [`docs/notices/v2-status-semantics.md`](docs/notices/v2-status-semantics.md). 2.0.1 and 2.0.2 carry the versioned workflow definitions and the relay fixes that the NEWAVE and DECOMP workflows run. 2.1.0 adds cobre. 2.2.0 tightens the DECOMP FC stage check ([`docs/notices/v2-fc-stage-mismatch.md`](docs/notices/v2-fc-stage-mismatch.md)), cleans the logs and adds a cobre results dashboard. 2.2.1 fixes the reporting of S3 upload and read failures and the cancellation of a terminated run. 2.2.2 fixes the Upload NEWAVE ingest of large offline runs. 2.2.3 supports cobre v0.18.0. 2.3.0 adds job telemetry. 2.3.1 runs the novomodelo fork of cobre.
+
+## [2.3.1] - 2026-10-16
+
+### Changed
+
+- cobre runs the novomodelo fork, `ons-ccee-epe/novomodelo`. `run cobre` launches `novomodelo-mpi` through `srun --mpi=pmix`, and the model is still named `cobre`. A version whose fetched executables hold only a `cobre-mpi` build fails at fetch with a data error that asks for a re-upload from a `novomodelo-mpi` build.
+- The cobre dashboard comes from `ons-ccee-epe/novomodelo-bridge` (`novomodelo-bridge dashboard`), at the tag equal to the run's `modelVersion`. The first run of a version resolves that tag on the cluster and records its commit under the tools root, and later runs reuse the record. The bridge must report the same version, and a version with no bridge tag of the same name fails in `ensure-utils`, before the model runs.
+- Adding a cobre version needs no hpc-model-utils change: release novomodelo and novomodelo-bridge with the same tag, run Upload Versão with the `novomodelo-mpi` build, and add the option to `modelVersion`.
+
+### Added
+
+- `deploy/modelops/scripts/ensure-tools.sh --tool-tag <name> <repo-url> <tag> <smoke-command>`: an install that follows a tag and records its commit, beside the SHA-pinned `--tool`.
+- The dry run of `deploy/modelops/apply.py` resolves the novomodelo-bridge tag of every cobre `modelVersion` option and prints `PIN novomodelo-bridge <tag> <sha12> resolved`. When a tag is missing, it refuses to apply.
+- `deploy/modelops/variants/telemetry-off/`: the `run.sh` and `cobre-run.sh` Task scripts with `export HPCMU_TELEMETRY=off`, the operator's off lever.
+
+### Removed
+
+- cobre `v0.17.0`, which leaves the `modelVersion` options because the fork starts at v0.18.0, and the `cobre-mpi` binary.
+- The cobre workflow's `synthesisAppVersion` and `synthesisAppSha` parameters.
 
 ## [2.3.0] - 2026-10-16
 
