@@ -149,9 +149,8 @@ CAPTURED: dict[str, tuple[str, ...]] = {
     ),
     "ensure-utils": (
         "utilsAppVersion",
-        "synthesisAppVersion",
         "utilsAppSha",
-        "synthesisAppSha",
+        "modelVersion",
     ),
     "cobre-run": (
         *_BASE,
@@ -1007,14 +1006,14 @@ TASK_DOCUMENTS: dict[str, dict[str, Any]] = {
         "observation": "Instala ou reutiliza instalacoes imutaveis de ferramentas, uma por commit",
     },
     "ensure-utils": {
-        "taskName": "Garante hpc-model-utils e cobre-bridge versionados",
-        "description": "Instala ou reutiliza as instalacoes imutaveis do hpc-model-utils e do cobre-bridge, uma por commit",
+        "taskName": "Garante hpc-model-utils e novomodelo-bridge versionados",
+        "description": "Instala ou reutiliza as instalacoes imutaveis do hpc-model-utils e do novomodelo-bridge, uma por commit",
         "scriptType": "BASH",
         "tags": [],
         "parameters": [],
         "version": "2.1.0",
         "hidden": False,
-        "observation": "Instala ou reutiliza as instalacoes imutaveis do hpc-model-utils e do cobre-bridge, uma por commit",
+        "observation": "Instala ou reutiliza as instalacoes imutaveis do hpc-model-utils e do novomodelo-bridge, uma por commit",
     },
     "cobre-run": {
         "taskName": "Executa e acompanha cobre no SLURM",
@@ -1723,6 +1722,7 @@ ENSURE_UTILS_TAG = "v2.0.2"
 ENSURE_UTILS_SHA = "a" * 40
 ENSURE_SYNTHESIS_TAG = "v2.4.5"
 ENSURE_SYNTHESIS_SHA = "b" * 40
+ENSURE_MODEL_VERSION = "v0.18.0"
 _RECORDING_STUB = """#!{bash}
 printf '%s\\n' "${{0##*/}} $*" >> "{calls}"
 exit 99
@@ -1762,10 +1762,19 @@ class EnsureSandbox:
             "utilsAppSha": ENSURE_UTILS_SHA,
             "synthesisAppVersion": ENSURE_SYNTHESIS_TAG,
             "synthesisAppSha": ENSURE_SYNTHESIS_SHA,
+            "modelVersion": ENSURE_MODEL_VERSION,
         }
 
     def tool_line(self, name: str, sha: str) -> str:
         return f"HPCMU_TOOL {name} {self.root / name / sha}\n"
+
+    def record_tag(self, name: str, repo: str, tag: str, sha: str) -> None:
+        record = self.root / ".tags" / name / tag
+        record.parent.mkdir(parents=True, exist_ok=True)
+        record.write_text(
+            f"tool={name}\nrepo={repo}\ntag={tag}\nsha={sha}\n",
+            encoding="utf-8",
+        )
 
     def install(self, name: str, sha: str) -> None:
         interpreter = (

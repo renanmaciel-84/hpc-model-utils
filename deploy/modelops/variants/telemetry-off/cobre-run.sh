@@ -70,9 +70,9 @@ IFS= read -r -d '' SYNTHESIS_DIR <<'HPCMU_{{CurrentExecution.ExecutionId}}' || :
 {{synthesisToolDir}}
 HPCMU_{{CurrentExecution.ExecutionId}}
 SYNTHESIS_DIR=${SYNTHESIS_DIR%$'\n'}
-[[ "$SYNTHESIS_DIR" =~ ^/[A-Za-z0-9._/-]+/cobre-bridge/[0-9a-f]{40}$ ]] || fail 'invalid synthesisToolDir'
-[[ "${SYNTHESIS_DIR%/cobre-bridge/*}" == '@@env:toolsRoot@@' ]] || fail 'invalid synthesisToolDir'
+[[ "$SYNTHESIS_DIR" =~ ^/[A-Za-z0-9._/-]+/novomodelo-bridge/[0-9a-f]{40}$ ]] || fail 'invalid synthesisToolDir'
+[[ "${SYNTHESIS_DIR%/novomodelo-bridge/*}" == '@@env:toolsRoot@@' ]] || fail 'invalid synthesisToolDir'
 
 export HPCMU_TELEMETRY=off
 cd -- "$WORKDIR"
-exec "$UTILS_DIR/.venv/bin/hpc-model-utils" run "$MODEL" "$QUEUE" "$CORES" --max-cores-per-node "$MAX_CORES" --max-job-time-hours "$JOB_HOURS" --mpich-path "$MPICH_PATH" --slurm-path "$SLURM_PATH" --synthesis-bin "$SYNTHESIS_DIR/.venv/bin/cobre-bridge"
+exec "$UTILS_DIR/.venv/bin/hpc-model-utils" run "$MODEL" "$QUEUE" "$CORES" --max-cores-per-node "$MAX_CORES" --max-job-time-hours "$JOB_HOURS" --mpich-path "$MPICH_PATH" --slurm-path "$SLURM_PATH" --synthesis-bin "$SYNTHESIS_DIR/.venv/bin/novomodelo-bridge"

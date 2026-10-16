@@ -29,9 +29,9 @@ from tests.deploy import test_task_script_idiom as idiom
 from tests.deploy.test_task_script_idiom import (
     _BASH_STUB,
     CAPTURED,
+    ENSURE_MODEL_VERSION,
     ENSURE_PYTHON,
     ENSURE_SYNTHESIS_SHA,
-    ENSURE_SYNTHESIS_TAG,
     ENSURE_UTILS_SHA,
     ENSURE_UTILS_TAG,
     Call,
@@ -95,14 +95,12 @@ PARAMETER_NAMES = (
     "synthesisToolDir",
     "utilsAppVersion",
     "utilsAppSha",
-    "synthesisAppVersion",
-    "synthesisAppSha",
     "versionsBucket",
     "jobTimeoutHours",
 )
 UTILS_TAG = "v2.2.2"
-BRIDGE_TAG = "v0.17.0"
-BRIDGE_SHA = "1b059ac505a8d57b6549c0a60411c41a9d7167cb"
+BRIDGE_TOOL = "novomodelo-bridge"
+BRIDGE_REPO = "https://github.com/ons-ccee-epe/novomodelo-bridge.git"
 UPLOAD_WORKFLOW = "workflows/upload-versao.json"
 UPLOAD_MODEL_OPTIONS = ["newave", "decomp", "cobre"]
 UPLOAD_CLI_TAG = "v1.1.0"
@@ -127,14 +125,6 @@ SHAPES: dict[str, tuple[str, str, bool, str, str, list[str]]] = {
         ["@@env:queueNewave@@", "@@env:queueDecomp@@", "@@env:queueCobre@@"],
     ),
     "modelName": ("String", "cobre", False, "", "", []),
-    "modelVersion": (
-        "List",
-        "v0.18.0",
-        True,
-        "",
-        "",
-        ["v0.17.0", "v0.18.0", "v0.18.1"],
-    ),
     "path": (
         "String",
         "",
@@ -156,7 +146,7 @@ SHAPES: dict[str, tuple[str, str, bool, str, str, list[str]]] = {
         "String",
         "",
         False,
-        r"HPCMU_TOOL cobre-bridge (/\S+)",
+        r"HPCMU_TOOL novomodelo-bridge (/\S+)",
         "{1}",
         [],
     ),
@@ -176,15 +166,15 @@ RUN_EXEC = (
     ' "$CORES" --max-cores-per-node "$MAX_CORES"'
     ' --max-job-time-hours "$JOB_HOURS" --mpich-path "$MPICH_PATH"'
     ' --slurm-path "$SLURM_PATH"'
-    ' --synthesis-bin "$SYNTHESIS_DIR/.venv/bin/cobre-bridge"'
+    ' --synthesis-bin "$SYNTHESIS_DIR/.venv/bin/novomodelo-bridge"'
 )
 ENSURE_EXEC = (
     "exec bash -s -- --root '@@env:toolsRoot@@' --uv '@@env:uvBin@@'"
     " --python '3.12.13' --tool hpc-model-utils"
     " https://github.com/rjmalves/hpc-model-utils.git"
     ' "$UTILS_TAG" "$UTILS_SHA" hpc-model-utils'
-    " --tool cobre-bridge https://github.com/cobre-rs/cobre-bridge.git"
-    ' "$SYNTHESIS_TAG" "$SYNTHESIS_SHA" cobre-bridge'
+    f" --tool-tag {BRIDGE_TOOL} {BRIDGE_REPO}"
+    f' "$MODEL_VERSION" {BRIDGE_TOOL}'
     " <<'HPCMU_ENSURE_TOOLS_EOF'"
 )
 
@@ -296,6 +286,29 @@ def check_parameters(root: Path) -> list[str]:
         )
         if shape != expected:
             errors.append(f"{WORKFLOW}: parameter {name} has the wrong shape")
+    # Shape only, never an options list: a version added in the UI needs no
+    # test edit (R96).
+    version = params.get("modelVersion", {})
+    options = version.get("options")
+    if (
+        version.get("type"),
+        version.get("visible"),
+        version.get("regexPattern"),
+        version.get("format"),
+    ) != ("List", True, "", "") or not isinstance(options, list):
+        errors.append(
+            f"{WORKFLOW}: parameter modelVersion is not a visible List"
+        )
+        options = []
+    elif not options or version.get("defaultValue") not in options:
+        errors.append(
+            f"{WORKFLOW}: modelVersion default is not one of its options"
+        )
+    for option in options:
+        if not isinstance(option, str) or not TAG.fullmatch(option):
+            errors.append(
+                f"{WORKFLOW}: modelVersion option {option!r} is not a vX.Y.Z tag"
+            )
     if "@@env:mpichPath@@" in text:
         errors.append(f"{WORKFLOW}: references the NEWAVE/DECOMP mpichPath")
     return errors
@@ -310,16 +323,7 @@ def check_pins(root: Path) -> list[str]:
         errors.append(f"{WORKFLOW}: utilsAppVersion is not {UTILS_TAG}")
     if not SHA.fullmatch(sha):
         errors.append(f"{WORKFLOW}: utilsAppSha is not 40 hex")
-    if params.get("synthesisAppVersion", {}).get("defaultValue") != BRIDGE_TAG:
-        errors.append(f"{WORKFLOW}: synthesisAppVersion is not {BRIDGE_TAG}")
-    if params.get("synthesisAppSha", {}).get("defaultValue") != BRIDGE_SHA:
-        errors.append(f"{WORKFLOW}: synthesisAppSha is not {BRIDGE_SHA}")
-    for name in (
-        "utilsAppVersion",
-        "utilsAppSha",
-        "synthesisAppVersion",
-        "synthesisAppSha",
-    ):
+    for name in ("utilsAppVersion", "utilsAppSha"):
         param = params.get(name, {})
         shape = (
             param.get("type"),
@@ -497,6 +501,14 @@ def _wrong_model_version_options(doc: dict[str, Any]) -> None:
     _parameter(doc, "modelVersion")["options"] = ["v0.17.0", "v0.16.0"]
 
 
+def _untagged_model_version_option(doc: dict[str, Any]) -> None:
+    _parameter(doc, "modelVersion")["options"].append("main")
+
+
+def _model_version_as_string(doc: dict[str, Any]) -> None:
+    _parameter(doc, "modelVersion")["type"] = "String"
+
+
 def _wrong_path_regex(doc: dict[str, Any]) -> None:
     _parameter(doc, "path")["regexPattern"] = ""
 
@@ -511,14 +523,6 @@ def _short_sha(doc: dict[str, Any]) -> None:
 
 def _visible_sha(doc: dict[str, Any]) -> None:
     _parameter(doc, "utilsAppSha")["visible"] = True
-
-
-def _branch_bridge_tag(doc: dict[str, Any]) -> None:
-    _parameter(doc, "synthesisAppVersion")["defaultValue"] = "main"
-
-
-def _short_bridge_sha(doc: dict[str, Any]) -> None:
-    _parameter(doc, "synthesisAppSha")["defaultValue"] = BRIDGE_SHA[:39]
 
 
 def test_check_chain_real_tree_reports_nothing() -> None:
@@ -580,7 +584,15 @@ def test_check_parameters_real_tree_reports_nothing() -> None:
         (_gap_in_order, r"parameter order is not contiguous"),
         (
             _wrong_model_version_options,
-            r"parameter modelVersion has the wrong shape",
+            r"modelVersion default is not one of its options",
+        ),
+        (
+            _untagged_model_version_option,
+            r"modelVersion option 'main' is not a vX\.Y\.Z tag",
+        ),
+        (
+            _model_version_as_string,
+            r"parameter modelVersion is not a visible List",
         ),
         (_wrong_path_regex, r"parameter path has the wrong shape"),
     ],
@@ -604,8 +616,6 @@ def test_check_pins_real_tree_reports_nothing() -> None:
         (_branch_tag, r"utilsAppVersion is not v"),
         (_short_sha, r"utilsAppSha is not 40 hex"),
         (_visible_sha, r"parameter utilsAppSha has the wrong shape"),
-        (_branch_bridge_tag, r"synthesisAppVersion is not v0\.17\.0"),
-        (_short_bridge_sha, rf"synthesisAppSha is not {BRIDGE_SHA}"),
     ],
 )
 def test_check_pins_mutated_copy_is_reported(
@@ -632,7 +642,7 @@ def _edit_script(root: Path, rel: str, old: str, new: str) -> None:
     ("old", "new", "message"),
     [
         (
-            '/.venv/bin/cobre-bridge"',
+            '/.venv/bin/novomodelo-bridge"',
             '/.venv/bin/sintetizador-cobre"',
             r"the final line is not the cobre command",
         ),
@@ -675,8 +685,8 @@ def test_check_ensure_utils_real_tree_reports_nothing() -> None:
     ("old", "new", "message"),
     [
         (
-            "cobre-bridge <<",
-            "cobre-bridge --tool sintetizador-newave <<",
+            "novomodelo-bridge <<",
+            "novomodelo-bridge --tool sintetizador-newave <<",
             r"the final three lines differ",
         ),
         (
@@ -746,7 +756,7 @@ def _cobre_values(sandbox: Layout) -> dict[str, str]:
         "mpichPath": sandbox.env["cobreMpichPath"],
         "slurmPath": sandbox.env["slurmPath"],
         "utilsToolDir": str(sandbox.tool_dir("hpc-model-utils")),
-        "synthesisToolDir": str(sandbox.tool_dir("cobre-bridge")),
+        "synthesisToolDir": str(sandbox.tool_dir(BRIDGE_TOOL)),
     }
 
 
@@ -810,7 +820,7 @@ def test_cobre_run_valid_values_exec_the_stub_once(layout: Layout) -> None:
                 "--slurm-path",
                 layout.env["slurmPath"],
                 "--synthesis-bin",
-                f"{layout.tool_dir('cobre-bridge')}/.venv/bin/cobre-bridge",
+                f"{layout.tool_dir(BRIDGE_TOOL)}/.venv/bin/{BRIDGE_TOOL}",
             ],
         )
     ]
@@ -835,10 +845,10 @@ def test_cobre_run_invalid_value_is_rejected(
 
 _SYNTHESIS_DIR_CASES: dict[str, Callable[[Layout], str]] = {
     "other-model": lambda sb: str(sb.tool_dir("sintetizador-decomp")),
-    "outside-tools-root": lambda sb: str(sb.tool_dir("cobre-bridge")).replace(
+    "outside-tools-root": lambda sb: str(sb.tool_dir(BRIDGE_TOOL)).replace(
         "/tools/", "/x/"
     ),
-    "short-sha": lambda sb: str(sb.tool_dir("cobre-bridge"))[:-1],
+    "short-sha": lambda sb: str(sb.tool_dir(BRIDGE_TOOL))[:-1],
 }
 
 
@@ -910,12 +920,11 @@ def test_ensure_utils_hands_bash_the_utils_arguments_and_the_script(
         ENSURE_UTILS_TAG,
         ENSURE_UTILS_SHA,
         "hpc-model-utils",
-        "--tool",
-        "cobre-bridge",
-        "https://github.com/cobre-rs/cobre-bridge.git",
-        ENSURE_SYNTHESIS_TAG,
-        ENSURE_SYNTHESIS_SHA,
-        "cobre-bridge",
+        "--tool-tag",
+        BRIDGE_TOOL,
+        BRIDGE_REPO,
+        ENSURE_MODEL_VERSION,
+        BRIDGE_TOOL,
     ]
     assert not any("sintetizador" in item.decode() for item in argv)
     script = (MODELOPS / "scripts" / "ensure-tools.sh").read_text("utf-8")
@@ -927,14 +936,17 @@ def test_ensure_utils_cache_hit_prints_two_tool_lines_and_runs_nothing(
     ensure_sandbox: EnsureSandbox,
 ) -> None:
     ensure_sandbox.install("hpc-model-utils", ENSURE_UTILS_SHA)
-    ensure_sandbox.install("cobre-bridge", ENSURE_SYNTHESIS_SHA)
+    ensure_sandbox.record_tag(
+        BRIDGE_TOOL, BRIDGE_REPO, ENSURE_MODEL_VERSION, ENSURE_SYNTHESIS_SHA
+    )
+    ensure_sandbox.install(BRIDGE_TOOL, ENSURE_SYNTHESIS_SHA)
 
     result = _run_ensure(ensure_sandbox, slug="ensure-utils")
 
     assert (result.returncode, result.stdout, result.stderr) == (
         0,
         ensure_sandbox.tool_line("hpc-model-utils", ENSURE_UTILS_SHA)
-        + ensure_sandbox.tool_line("cobre-bridge", ENSURE_SYNTHESIS_SHA),
+        + ensure_sandbox.tool_line(BRIDGE_TOOL, ENSURE_SYNTHESIS_SHA),
         "",
     )
     assert result.stdout.count("HPCMU_TOOL ") == 2
@@ -945,14 +957,17 @@ def test_ensure_utils_ignores_the_model_name(
     ensure_sandbox: EnsureSandbox,
 ) -> None:
     ensure_sandbox.install("hpc-model-utils", ENSURE_UTILS_SHA)
-    ensure_sandbox.install("cobre-bridge", ENSURE_SYNTHESIS_SHA)
+    ensure_sandbox.record_tag(
+        BRIDGE_TOOL, BRIDGE_REPO, ENSURE_MODEL_VERSION, ENSURE_SYNTHESIS_SHA
+    )
+    ensure_sandbox.install(BRIDGE_TOOL, ENSURE_SYNTHESIS_SHA)
 
     result = _run_ensure(ensure_sandbox, model="cobre", slug="ensure-utils")
 
     assert result.returncode == 0
     assert result.stdout == ensure_sandbox.tool_line(
         "hpc-model-utils", ENSURE_UTILS_SHA
-    ) + ensure_sandbox.tool_line("cobre-bridge", ENSURE_SYNTHESIS_SHA)
+    ) + ensure_sandbox.tool_line(BRIDGE_TOOL, ENSURE_SYNTHESIS_SHA)
 
 
 @pytest.mark.parametrize("parameter", CAPTURED["ensure-utils"])
@@ -984,8 +999,8 @@ def test_ensure_utils_forged_terminator_is_rejected(
         ("utilsAppVersion", "v2.1"),
         ("utilsAppSha", "A" * 40),
         ("utilsAppSha", "a" * 39),
-        ("synthesisAppVersion", "main"),
-        ("synthesisAppSha", "a" * 39),
+        ("modelVersion", "main"),
+        ("modelVersion", "v0.18"),
     ],
 )
 def test_ensure_utils_invalid_value_is_rejected(
@@ -1001,3 +1016,24 @@ def test_ensure_utils_invalid_value_is_rejected(
         f"hpcmu-task: invalid {parameter}\n",
     )
     assert ensure_sandbox.recorded() == []
+
+
+@pytest.mark.skipif(shutil.which("flock") is None, reason="needs flock")
+def test_ensure_utils_resolves_the_bridge_tag_from_model_version(
+    ensure_sandbox: EnsureSandbox,
+) -> None:
+    ensure_sandbox.install("hpc-model-utils", ENSURE_UTILS_SHA)
+
+    result = _run_ensure(ensure_sandbox, slug="ensure-utils")
+
+    assert (result.returncode, result.stdout) == (1, "")
+    assert result.stderr.startswith(
+        f"ensure-tools: {BRIDGE_TOOL}@{ENSURE_MODEL_VERSION}:"
+        " git ls-remote failed (log: "
+    )
+    assert ensure_sandbox.recorded() == [
+        f"git ls-remote {BRIDGE_REPO} refs/tags/{ENSURE_MODEL_VERSION}"
+        f" refs/tags/{ENSURE_MODEL_VERSION}^{{}}"
+    ]
+    record = ensure_sandbox.root / ".tags" / BRIDGE_TOOL / ENSURE_MODEL_VERSION
+    assert not record.exists()

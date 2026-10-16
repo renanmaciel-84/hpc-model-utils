@@ -296,7 +296,7 @@ sequenceDiagram
 The job-side step is
 `src/hpc_model_utils/core/lifecycle/finalize.py::finalize`. It diagnoses the
 model job; runs postprocess and the synthesis step (sintetizador for NEWAVE
-and DECOMP, `cobre-bridge dashboard` for cobre) only on `SUCCESS`; always
+and DECOMP, `novomodelo-bridge dashboard` for cobre) only on `SUCCESS`; always
 realizes the output plan; and writes `finalize.json` once. A synthesis tool
 that exits non-zero or a postprocess that raises keeps `SUCCESS` but records
 the failure in the reason and the evidence. A missing synthesis tool becomes
@@ -545,9 +545,17 @@ to the repository root.
 - v0.18.0 names the release in `training/metadata.json` as
   `software_version` (`cobre_version` before it); the diagnosis reads
   either.
-- The dashboard comes from cobre-bridge `v0.17.0`, pinned in the cobre
-  workflow as `synthesisAppVersion`/`synthesisAppSha` and installed by
-  `ensure-utils`; it runs only when `output/simulation/` exists
-  (`src/hpc_model_utils/models/cobre/outputs.py::dashboard_args`);
-  cobre-bridge requires `cobre-python` below 0.18, so re-pin it with every
-  cobre upgrade.
+- The dashboard comes from `ons-ccee-epe/novomodelo-bridge` at the tag
+  equal to the run's `modelVersion`, installed by `ensure-utils` through
+  `ensure-tools.sh --tool-tag`. The first run of a version resolves that
+  tag on the cluster and records its commit in
+  `<tools-root>/.tags/novomodelo-bridge/<tag>`; later runs reuse the
+  record, and the run's `HPCMU_TOOL` path shows the commit. The bridge must
+  report the same version on `--version`. It runs only when
+  `output/simulation/` exists
+  (`src/hpc_model_utils/models/cobre/outputs.py::dashboard_args`). Adding a
+  cobre version needs no change in this repository: release novomodelo and
+  novomodelo-bridge with the same tag, run Upload Versão with the
+  `novomodelo-mpi` build, and add the option to `modelVersion` in the
+  ModelOps UI; the next apply folds it. A release that changes a contract
+  in these cobre runtime facts needs a change in this repository first.
