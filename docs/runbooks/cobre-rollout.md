@@ -872,7 +872,9 @@ novomodelo fork (`ons-ccee-epe/novomodelo`), and the model keeps the name
 `novomodelo-mpi` upload under `versoes/cobre/v<version>/`. A fetched folder
 that holds only the pre-fork binary fails at fetch with a message that asks
 for this re-upload. `<version>` is the release number without the `v`, for
-example `0.18.1`.
+example `0.18.1`, or a patched build's, for example `0.19.1-fixinflows`. A
+patched build runs the novomodelo-bridge of its base release (`v0.19.1`), so
+that bridge tag must exist; the apply dry run checks it.
 
 **Before offering the version:** a novomodelo release that changes the `run`
 arguments, the exit codes, the summary labels or the stopping-rule names needs

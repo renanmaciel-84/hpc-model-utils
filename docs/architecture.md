@@ -545,17 +545,25 @@ to the repository root.
 - v0.18.0 names the release in `training/metadata.json` as
   `software_version` (`cobre_version` before it); the diagnosis reads
   either.
-- The dashboard comes from `ons-ccee-epe/novomodelo-bridge` at the tag
-  equal to the run's `modelVersion`, installed by `ensure-utils` through
-  `ensure-tools.sh --tool-tag`. The first run of a version resolves that
-  tag on the cluster and records its commit in
+- A cobre `modelVersion` is a novomodelo release tag `vX.Y.Z`, or a patched
+  build of one: the release tag with a semver pre-release suffix, such as
+  `v0.19.1-fixinflows`. Both the apply dry run and `ensure-utils` reject
+  any other form.
+- The dashboard comes from `ons-ccee-epe/novomodelo-bridge` at the release
+  tag of the run's `modelVersion` (`v0.19.1` for `v0.19.1-fixinflows`),
+  installed by `ensure-utils` through `ensure-tools.sh --tool-tag`. A
+  patched build runs the bridge of its base release because the bridge only
+  builds the dashboard. The first run of a release resolves that tag on the
+  cluster and records its commit in
   `<tools-root>/.tags/novomodelo-bridge/<tag>`; later runs reuse the
   record, and the run's `HPCMU_TOOL` path shows the commit. The bridge must
-  report the same version on `--version`. It runs only when
+  report the release's version on `--version`. It runs only when
   `output/simulation/` exists
   (`src/hpc_model_utils/models/cobre/outputs.py::dashboard_args`). Adding a
   cobre version needs no change in this repository: release novomodelo and
-  novomodelo-bridge with the same tag, run Upload Versão with the
-  `novomodelo-mpi` build, and add the option to `modelVersion` in the
-  ModelOps UI; the next apply folds it. A release that changes a contract
-  in these cobre runtime facts needs a change in this repository first.
+  novomodelo-bridge with the same tag (a patched build needs only its
+  novomodelo tag, and its release's bridge tag must exist), run Upload
+  Versão with the `novomodelo-mpi` build, and add the option to
+  `modelVersion` in the ModelOps UI; the next apply folds it. A release that
+  changes a contract in these cobre runtime facts needs a change in this
+  repository first.

@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import json
 import os
+import re
 import shutil
 import subprocess
 from collections.abc import Callable
@@ -104,6 +105,11 @@ BRIDGE_REPO = "https://github.com/ons-ccee-epe/novomodelo-bridge.git"
 UPLOAD_WORKFLOW = "workflows/upload-versao.json"
 UPLOAD_MODEL_OPTIONS = ["newave", "decomp", "cobre"]
 UPLOAD_CLI_TAG = "v1.1.0"
+# A release tag, or a patched build of one with a semver pre-release suffix.
+MODEL_VERSION = re.compile(
+    r"v[0-9]+\.[0-9]+\.[0-9]+(?:-[0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*)?"
+)
+PATCHED_MODEL_VERSION = f"{ENSURE_MODEL_VERSION}-fixinflows"
 
 # name -> (type, defaultValue, visible, regexPattern, format, options)
 SHAPES: dict[str, tuple[str, str, bool, str, str, list[str]]] = {
@@ -174,7 +180,7 @@ ENSURE_EXEC = (
     " https://github.com/rjmalves/hpc-model-utils.git"
     ' "$UTILS_TAG" "$UTILS_SHA" hpc-model-utils'
     f" --tool-tag {BRIDGE_TOOL} {BRIDGE_REPO}"
-    f' "$MODEL_VERSION" {BRIDGE_TOOL}'
+    f' "$BRIDGE_TAG" {BRIDGE_TOOL}'
     " <<'HPCMU_ENSURE_TOOLS_EOF'"
 )
 
@@ -305,9 +311,10 @@ def check_parameters(root: Path) -> list[str]:
             f"{WORKFLOW}: modelVersion default is not one of its options"
         )
     for option in options:
-        if not isinstance(option, str) or not TAG.fullmatch(option):
+        if not isinstance(option, str) or not MODEL_VERSION.fullmatch(option):
             errors.append(
-                f"{WORKFLOW}: modelVersion option {option!r} is not a vX.Y.Z tag"
+                f"{WORKFLOW}: modelVersion option {option!r} is not a"
+                " vX.Y.Z[-suffix] version"
             )
     if "@@env:mpichPath@@" in text:
         errors.append(f"{WORKFLOW}: references the NEWAVE/DECOMP mpichPath")
@@ -588,7 +595,7 @@ def test_check_parameters_real_tree_reports_nothing() -> None:
         ),
         (
             _untagged_model_version_option,
-            r"modelVersion option 'main' is not a vX\.Y\.Z tag",
+            r"modelVersion option 'main' is not a vX\.Y\.Z\[-suffix\]",
         ),
         (
             _model_version_as_string,
@@ -604,6 +611,17 @@ def test_check_parameters_mutated_copy_is_reported(
 
     with pytest.raises(AssertionError, match=message):
         require(check_parameters(tree))
+
+
+def test_check_parameters_accepts_a_patched_build_option(tree: Path) -> None:
+    _rewrite(
+        tree,
+        lambda doc: _parameter(doc, "modelVersion")["options"].append(
+            PATCHED_MODEL_VERSION
+        ),
+    )
+
+    require(check_parameters(tree))
 
 
 def test_check_pins_real_tree_reports_nothing() -> None:
@@ -896,12 +914,17 @@ def _stub_bash(sandbox: EnsureSandbox) -> None:
     stub.chmod(0o755)
 
 
+@pytest.mark.parametrize(
+    "model_version", [ENSURE_MODEL_VERSION, PATCHED_MODEL_VERSION]
+)
 def test_ensure_utils_hands_bash_the_utils_arguments_and_the_script(
-    ensure_sandbox: EnsureSandbox,
+    ensure_sandbox: EnsureSandbox, model_version: str
 ) -> None:
     _stub_bash(ensure_sandbox)
 
-    result = _run_ensure(ensure_sandbox, slug="ensure-utils")
+    result = _run_ensure(
+        ensure_sandbox, {"modelVersion": model_version}, slug="ensure-utils"
+    )
 
     assert (result.returncode, result.stdout, result.stderr) == (0, "", "")
     argv = (ensure_sandbox.base / "bash-argv").read_bytes().split(b"\0")[:-1]
@@ -932,8 +955,11 @@ def test_ensure_utils_hands_bash_the_utils_arguments_and_the_script(
     assert stdin == script + "\n"
 
 
+@pytest.mark.parametrize(
+    "model_version", [ENSURE_MODEL_VERSION, PATCHED_MODEL_VERSION]
+)
 def test_ensure_utils_cache_hit_prints_two_tool_lines_and_runs_nothing(
-    ensure_sandbox: EnsureSandbox,
+    ensure_sandbox: EnsureSandbox, model_version: str
 ) -> None:
     ensure_sandbox.install("hpc-model-utils", ENSURE_UTILS_SHA)
     ensure_sandbox.record_tag(
@@ -941,7 +967,9 @@ def test_ensure_utils_cache_hit_prints_two_tool_lines_and_runs_nothing(
     )
     ensure_sandbox.install(BRIDGE_TOOL, ENSURE_SYNTHESIS_SHA)
 
-    result = _run_ensure(ensure_sandbox, slug="ensure-utils")
+    result = _run_ensure(
+        ensure_sandbox, {"modelVersion": model_version}, slug="ensure-utils"
+    )
 
     assert (result.returncode, result.stdout, result.stderr) == (
         0,
@@ -1001,6 +1029,10 @@ def test_ensure_utils_forged_terminator_is_rejected(
         ("utilsAppSha", "a" * 39),
         ("modelVersion", "main"),
         ("modelVersion", "v0.18"),
+        ("modelVersion", "v0.18.0-"),
+        ("modelVersion", "v0.18.0-fix..1"),
+        ("modelVersion", "v0.18.0-fix_inflows"),
+        ("modelVersion", "v0.18.0+fixinflows"),
     ],
 )
 def test_ensure_utils_invalid_value_is_rejected(
@@ -1019,12 +1051,17 @@ def test_ensure_utils_invalid_value_is_rejected(
 
 
 @pytest.mark.skipif(shutil.which("flock") is None, reason="needs flock")
+@pytest.mark.parametrize(
+    "model_version", [ENSURE_MODEL_VERSION, PATCHED_MODEL_VERSION]
+)
 def test_ensure_utils_resolves_the_bridge_tag_from_model_version(
-    ensure_sandbox: EnsureSandbox,
+    ensure_sandbox: EnsureSandbox, model_version: str
 ) -> None:
     ensure_sandbox.install("hpc-model-utils", ENSURE_UTILS_SHA)
 
-    result = _run_ensure(ensure_sandbox, slug="ensure-utils")
+    result = _run_ensure(
+        ensure_sandbox, {"modelVersion": model_version}, slug="ensure-utils"
+    )
 
     assert (result.returncode, result.stdout) == (1, "")
     assert result.stderr.startswith(

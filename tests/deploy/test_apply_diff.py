@@ -1055,6 +1055,55 @@ def test_pin_tag_tool_resolves_every_model_version_option_to_its_commit(
     assert code == 0
 
 
+def test_pin_tag_tool_resolves_a_patched_build_to_its_release_tag(
+    fake: FakeModelOpsServer,
+    defs: Defs,
+    remote: Remote,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    patched = f"{ANNOTATED_TAG}-fix-inflows.2"
+    _tag_tool_flow(defs, remote.commit, [ANNOTATED_TAG, patched])
+    _seed(fake, defs)
+
+    code, lines, _ = _run(
+        fake,
+        defs,
+        capsys,
+        repos={"hpc-model-utils": remote.url, BRIDGE: remote.url},
+    )
+
+    assert [x for x in lines if x.startswith(f"PIN {BRIDGE} ")] == [
+        f"PIN {BRIDGE} {ANNOTATED_TAG} {remote.commit[:12]} resolved",
+        f"PIN {BRIDGE} {ANNOTATED_TAG} for {patched}"
+        f" {remote.commit[:12]} resolved",
+    ]
+    assert code == 0
+
+
+def test_pin_tag_tool_patched_build_without_its_release_tag_exits_1(
+    fake: FakeModelOpsServer,
+    defs: Defs,
+    remote: Remote,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    _tag_tool_flow(defs, remote.commit, ["v9.9.9-fixinflows"])
+    _seed(fake, defs)
+
+    code, lines, _ = _run(
+        fake,
+        defs,
+        capsys,
+        repos={"hpc-model-utils": remote.url, BRIDGE: remote.url},
+    )
+
+    assert (
+        f"PIN {BRIDGE} v9.9.9 for v9.9.9-fixinflows MISSING (tag not found)"
+        in lines
+    )
+    assert lines[-1].endswith(" 1 failures")
+    assert code == 1
+
+
 def test_pin_tag_tool_unknown_tag_prints_missing_and_exits_1(
     fake: FakeModelOpsServer,
     defs: Defs,
@@ -1128,7 +1177,18 @@ def test_pin_tag_tool_without_a_repository_entry_prints_missing(
     [
         (
             [ANNOTATED_TAG, "main"],
-            "PIN flow: modelVersion option 'main' is not a vX.Y.Z tag",
+            "PIN flow: modelVersion option 'main' is not a vX.Y.Z[-suffix]"
+            " version",
+        ),
+        (
+            [ANNOTATED_TAG, f"{ANNOTATED_TAG}-"],
+            f"PIN flow: modelVersion option '{ANNOTATED_TAG}-' is not a"
+            " vX.Y.Z[-suffix] version",
+        ),
+        (
+            [ANNOTATED_TAG, f"{ANNOTATED_TAG}+fix"],
+            f"PIN flow: modelVersion option '{ANNOTATED_TAG}+fix' is not a"
+            " vX.Y.Z[-suffix] version",
         ),
         ([], "PIN flow: modelVersion offers no tag"),
     ],

@@ -1,4 +1,5 @@
-"""The cobre bridge follows the run's ``modelVersion``: every option has a tag.
+"""The cobre bridge follows the release of the run's ``modelVersion``: the
+release of every option has a bridge tag.
 
 These tests need network access to GitHub, not LocalStack.
 """
@@ -14,6 +15,7 @@ from deploy.modelops.apply import (
     _PIN_REPOS,
     _SHA_RE,
     _TAG_TOOLS,
+    _release_tag,
     _resolve_tag,
     _TagUnresolvedError,
 )
@@ -35,8 +37,10 @@ _OPTIONS = next(
 )
 
 
-@pytest.mark.parametrize("tag", _OPTIONS)
-def test_bridge_tag_exists_for_every_cobre_model_version(tag: str) -> None:
+@pytest.mark.parametrize("version", _OPTIONS)
+def test_bridge_tag_exists_for_every_cobre_model_version(version: str) -> None:
+    tag = _release_tag(version)
+    assert tag is not None, f"{version} is not a vX.Y.Z[-suffix] version"
     try:
         sha = _resolve_tag(_PIN_REPOS[_TOOL], tag)
     except _TagUnresolvedError as exc:
