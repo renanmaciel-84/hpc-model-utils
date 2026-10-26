@@ -85,6 +85,12 @@ _PINS = (
     ("synthesisAppVersion", "synthesisAppSha"),
 )
 _TAG_RE = re.compile(r"v[0-9]+\.[0-9]+\.[0-9]+")
+# A model version is a release tag, or a patched build of one with a semver
+# pre-release suffix (v0.19.1-fixinflows). A tag tool follows the release, so
+# a patched build runs the tool of its base release.
+_MODEL_VERSION_RE = re.compile(
+    rf"(?P<release>{_TAG_RE.pattern})(?:-[0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*)?"
+)
 _SHA_RE = re.compile(r"[0-9a-f]{40}")
 _USER_RE = re.compile(r"[A-Za-z0-9._@-]{1,64}")
 _API_KINDS = MappingProxyType({"task": "Task", "workflow": "Workflow"})
@@ -415,6 +421,14 @@ def _verify_pin(
     return "ok" if actual == sha else "MISMATCH"
 
 
+def _release_tag(version: object) -> str | None:
+    """The release tag of a model version: v0.19.1 for v0.19.1-fixinflows."""
+    if not isinstance(version, str):
+        return None
+    match = _MODEL_VERSION_RE.fullmatch(version)
+    return None if match is None else match["release"]
+
+
 def _tag_lines(
     slug: str,
     workflow: Mapping[str, Any],
@@ -435,24 +449,28 @@ def _tag_lines(
     lines: list[str] = []
     failures = 0
     for option in options:
-        if not (isinstance(option, str) and _TAG_RE.fullmatch(option)):
+        tag = _release_tag(option)
+        if tag is None:
             lines.append(
-                f"PIN {slug}: {param} option {option!r} is not a vX.Y.Z tag"
+                f"PIN {slug}: {param} option {option!r} is not a"
+                " vX.Y.Z[-suffix] version"
             )
             failures += 1
-        elif name not in repos:
+            continue
+        label = tag if tag == option else f"{tag} for {option}"
+        if name not in repos:
             lines.append(
-                f"PIN {name} {option} MISSING (no repository for {name})"
+                f"PIN {name} {label} MISSING (no repository for {name})"
             )
+            failures += 1
+            continue
+        try:
+            sha = _resolve_tag(repos[name], tag)
+        except _TagUnresolvedError as exc:
+            lines.append(f"PIN {name} {label} {exc.status}")
             failures += 1
         else:
-            try:
-                sha = _resolve_tag(repos[name], option)
-            except _TagUnresolvedError as exc:
-                lines.append(f"PIN {name} {option} {exc.status}")
-                failures += 1
-            else:
-                lines.append(f"PIN {name} {option} {sha[:12]} resolved")
+            lines.append(f"PIN {name} {label} {sha[:12]} resolved")
     return lines, failures
 
 

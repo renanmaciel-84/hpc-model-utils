@@ -90,6 +90,12 @@ PARAMETER_VARIABLES = {
     "CurrentExecution.ExecutionName": "EXECUTION_NAME",
     "CurrentExecution.ExecutionHash": "EXECUTION_HASH",
 }
+BRIDGE_TAG_LINE = "BRIDGE_TAG=${MODEL_VERSION%%-*}"
+# slug -> (variable, line): the one line of that Task that derives the
+# variable from a validated capture. No other Task may use the variable.
+DERIVED: dict[str, tuple[str, str]] = {
+    "ensure-utils": ("BRIDGE_TAG", BRIDGE_TAG_LINE),
+}
 _BASE = ("modelName", "rootPath", "path")
 CAPTURED: dict[str, tuple[str, ...]] = {
     "create-workdir": ("modelName", "rootPath"),
@@ -188,7 +194,14 @@ FINAL_LINES = {
 }
 
 _NAME = r"[A-Z][A-Z_]*"
-_VARIABLES = "|".join(sorted(PARAMETER_VARIABLES.values()))
+_VARIABLES = "|".join(
+    sorted(
+        {
+            *PARAMETER_VARIABLES.values(),
+            *(variable for variable, _ in DERIVED.values()),
+        }
+    )
+)
 _OPENER = re.compile(
     rf"IFS= read -r -d '' ({_NAME}) <<'{re.escape(DELIMITER)}' \|\| :"
 )
@@ -358,6 +371,11 @@ def lint_script(slug: str, text: str) -> list[str]:
     allowed_extra = {MKTEMP} if slug == "create-workdir" else set()
     if slug in TELEMETRY_OFF_SLUGS:
         allowed_extra.add(TELEMETRY_OFF)
+    if slug in DERIVED:
+        variable, derivation = DERIVED[slug]
+        allowed_extra.add(derivation)
+        if derivation in lines:
+            defined.add(variable)
     last = len(lines) - 1
     for index, line in enumerate(lines):
         number = index + 1
@@ -530,6 +548,14 @@ def _drop_first_line(lines: list[str]) -> None:
     del lines[0]
 
 
+def _derive_before_validation(lines: list[str]) -> None:
+    moved = lines.pop(_index(lines, lambda s: s == BRIDGE_TAG_LINE))
+    lines.insert(
+        _index(lines, lambda s: s.endswith("fail 'invalid modelVersion'")),
+        moved,
+    )
+
+
 @pytest.mark.parametrize(
     ("script", "mutation", "message"),
     [
@@ -537,6 +563,12 @@ def _drop_first_line(lines: list[str]) -> None:
             "extract-sanitize",
             _append_redirection,
             r"extract-sanitize\.sh:\d+: forbidden: stderr redirection",
+        ),
+        (
+            "ensure-utils",
+            _derive_before_validation,
+            r"ensure-utils\.sh:\d+: validation-order: validation line"
+            r" for modelVersion comes after the first use of MODEL_VERSION",
         ),
         (
             "fetch-inputs",
@@ -653,6 +685,12 @@ def _two_tests_in_one_line(lines: list[str]) -> None:
     )
 
 
+def _derivation_of_another_task(lines: list[str]) -> None:
+    lines.insert(
+        _index(lines, lambda s: s.startswith("exec ")), BRIDGE_TAG_LINE
+    )
+
+
 @pytest.mark.parametrize(
     "mutation",
     [
@@ -665,6 +703,7 @@ def _two_tests_in_one_line(lines: list[str]) -> None:
         _blank_last_line,
         _unvalidated_command_substitution,
         _two_tests_in_one_line,
+        _derivation_of_another_task,
     ],
 )
 def test_lint_closed_set_violation_is_reported(
@@ -733,6 +772,10 @@ def _drop_synthesis_sha_capture(lines: list[str]) -> None:
     del lines[start : start + 5]
 
 
+def _drop_bridge_tag(lines: list[str]) -> None:
+    del lines[_index(lines, lambda s: s == BRIDGE_TAG_LINE)]
+
+
 @pytest.mark.parametrize(
     ("script", "mutation", "variable"),
     [
@@ -747,6 +790,7 @@ def _drop_synthesis_sha_capture(lines: list[str]) -> None:
         ),
         ("create-workdir", _drop_mktemp, "WORKDIR"),
         (ENSURE_SLUG, _drop_synthesis_sha_capture, "SYNTHESIS_SHA"),
+        ("ensure-utils", _drop_bridge_tag, "BRIDGE_TAG"),
     ],
 )
 def test_lint_uncaptured_variable_is_reported(
