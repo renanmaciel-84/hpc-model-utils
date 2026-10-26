@@ -99,7 +99,7 @@ PARAMETER_NAMES = (
     "versionsBucket",
     "jobTimeoutHours",
 )
-UTILS_TAG = "v2.2.2"
+UTILS_TAG = "v2.3.2"
 BRIDGE_TOOL = "novomodelo-bridge"
 BRIDGE_REPO = "https://github.com/ons-ccee-epe/novomodelo-bridge.git"
 UPLOAD_WORKFLOW = "workflows/upload-versao.json"
