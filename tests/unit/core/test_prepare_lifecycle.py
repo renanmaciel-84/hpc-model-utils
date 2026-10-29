@@ -7,6 +7,7 @@ from __future__ import annotations
 import json
 import logging
 import os
+import zipfile
 from dataclasses import replace
 from pathlib import Path
 
@@ -119,6 +120,32 @@ def test_extract_archive_assets_member_raises_data_error_before_writing(
         extract_archive(ws, ws.eco_deck_path)
 
     assert not (ws.root / "assets").exists()
+
+
+def test_extract_archive_assets_directory_entry_raises_data_error(
+    tmp_path: Path,
+) -> None:
+    ws = Workspace.at(tmp_path)
+    input_zip({"a.txt": b"A"}, ws.eco_deck_path)
+    with zipfile.ZipFile(ws.eco_deck_path, "a") as zf:
+        zf.writestr("assets/planted/", "")
+
+    with pytest.raises(DataError, match="assets"):
+        extract_archive(ws, ws.eco_deck_path)
+
+    assert not (ws.root / "assets" / "planted").exists()
+
+
+def test_extract_archive_keeps_empty_case_directory(tmp_path: Path) -> None:
+    ws = Workspace.at(tmp_path)
+    input_zip({"case/boundary/manifest.bin": b"M"}, ws.eco_deck_path)
+    with zipfile.ZipFile(ws.eco_deck_path, "a") as zf:
+        zf.writestr("case/boundary/basis/", "")
+
+    members = extract_archive(ws, ws.eco_deck_path)
+
+    assert members == ("case/boundary/manifest.bin",)
+    assert (ws.root / "case/boundary/basis").is_dir()
 
 
 def test_extract_archive_self_reference_member_raises_data_error(

@@ -113,6 +113,50 @@ def test_extract_selective_members_ignores_missing_members(
     assert not (dest / "b.txt").exists()
 
 
+def test_extract_all_members_creates_empty_directory_entries(
+    tmp_path: Path,
+) -> None:
+    zip_path = tmp_path / "deck.zip"
+    with zipfile.ZipFile(zip_path, "w") as zf:
+        zf.writestr("case/boundary/basis/", "")
+        zf.writestr("case/boundary/manifest.bin", "M")
+    dest = tmp_path / "dest"
+
+    extracted = archive.extract(zip_path, dest)
+
+    assert extracted == ["case/boundary/manifest.bin"]
+    assert (dest / "case/boundary/basis").is_dir()
+
+
+def test_extract_selective_members_skips_directory_entries(
+    tmp_path: Path,
+) -> None:
+    zip_path = tmp_path / "deck.zip"
+    with zipfile.ZipFile(zip_path, "w") as zf:
+        zf.writestr("empty/", "")
+        zf.writestr("a.txt", "A")
+    dest = tmp_path / "dest"
+
+    archive.extract(zip_path, dest, members={"a.txt"})
+
+    assert not (dest / "empty").exists()
+
+
+@pytest.mark.parametrize("name", ["../evil/", ".hpcmu/", "/abs/"])
+def test_extract_unsafe_directory_entry_raises_and_writes_nothing(
+    tmp_path: Path, name: str
+) -> None:
+    zip_path = tmp_path / "unsafe.zip"
+    with zipfile.ZipFile(zip_path, "w") as zf:
+        zf.writestr(zipfile.ZipInfo(name), "")
+    dest = tmp_path / "dest"
+
+    with pytest.raises(UnsafeArchiveError):
+        archive.extract(zip_path, dest)
+
+    assert not dest.exists()
+
+
 def test_extract_all_members_returns_sorted_names_excluding_directories(
     tmp_path: Path,
 ) -> None:

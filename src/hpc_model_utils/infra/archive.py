@@ -70,28 +70,40 @@ def _normalized_parts(name: str) -> tuple[str, ...]:
     return parts
 
 
-def validated_members(archive: Path) -> list[str]:
+def _validated_entries(archive: Path) -> tuple[list[str], list[str]]:
     try:
         with zipfile.ZipFile(archive) as zf:
             infos = zf.infolist()
     except zipfile.BadZipFile as err:
         raise UnsafeArchiveError(f"not a zip archive: {archive.name}") from err
-    names: list[str] = []
+    files: list[str] = []
+    directories: list[str] = []
     for info in infos:
-        if info.is_dir():
-            continue
         _normalized_parts(info.filename)
-        names.append(info.filename)
-    return names
+        (directories if info.is_dir() else files).append(info.filename)
+    return files, directories
+
+
+def validated_members(archive: Path) -> list[str]:
+    return _validated_entries(archive)[0]
+
+
+def validated_directories(archive: Path) -> list[str]:
+    return _validated_entries(archive)[1]
 
 
 def extract(
     archive: Path, dest: Path, *, members: Collection[str] | None = None
 ) -> list[str]:
-    valid = validated_members(archive)
+    """Return the extracted file members; a full extraction also
+    recreates directory entries, since a deck may need an empty one."""
+    valid, directories = _validated_entries(archive)
     selected = valid if members is None else [n for n in valid if n in members]
     dest.mkdir(parents=True, exist_ok=True)
     with zipfile.ZipFile(archive) as zf:
+        if members is None:
+            for name in directories:
+                zf.extract(name, dest)
         for name in selected:
             zf.extract(name, dest)
     return sorted(selected)

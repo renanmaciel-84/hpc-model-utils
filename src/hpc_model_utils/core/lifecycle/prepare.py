@@ -37,7 +37,11 @@ from hpc_model_utils.core.state import (
     write_projections,
 )
 from hpc_model_utils.core.workspace import Workspace
-from hpc_model_utils.infra.archive import extract, validated_members
+from hpc_model_utils.infra.archive import (
+    extract,
+    validated_directories,
+    validated_members,
+)
 from hpc_model_utils.infra.encoding import TextEncoding, sanitize_file
 from hpc_model_utils.infra.errors import ShellCommandError
 from hpc_model_utils.infra.shell import run as shell_run
@@ -56,10 +60,11 @@ def extract_archive(ws: Workspace, archive: Path) -> tuple[str, ...]:
     member that is the archive itself, before writing anything."""
     members = validated_members(archive)
     archive_resolved = archive.resolve()
-    for member in members:
-        first_segment = PurePosixPath(member).parts[0]
+    for entry in (*members, *validated_directories(archive)):
+        first_segment = PurePosixPath(entry).parts[0]
         if re.fullmatch(r"assets", first_segment, re.IGNORECASE):
-            raise DataError(f"deck member under reserved assets/: {member!r}")
+            raise DataError(f"deck member under reserved assets/: {entry!r}")
+    for member in members:
         if (ws.root / member).resolve() == archive_resolved:
             raise DataError(f"deck member is the archive itself: {member!r}")
     return tuple(extract(archive, ws.root))
